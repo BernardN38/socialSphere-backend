@@ -26,7 +26,6 @@ build_auth:
 	cd ./authentication-service && env GOOS=linux CGO_ENABLED=0 go build -o ${AUTH_BINARY} ./cmd/api
 	@echo "Done!"
 
-
 ## build_post: builds the pos binary as a linux executable
 build_post:
 	@echo "Building auth binary..."

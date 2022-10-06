@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/bernardn38/socialsphere/post-service/helpers"
 	"github.com/bernardn38/socialsphere/post-service/sql/post"
 	"github.com/bernardn38/socialsphere/post-service/token"
@@ -55,15 +54,11 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 
 func (handler *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 	postId := chi.URLParam(r, "id")
-	post, err := handler.PostDb.GetPostById(context.Background(), uuid.Must(uuid.Parse(postId)))
+	_, err := handler.PostDb.GetPostById(context.Background(), uuid.Must(uuid.Parse(postId)))
 	if err != nil {
 		helpers.ResponseNoPayload(w, 500)
 		return
 	}
-	jsonPost, err := json.Marshal(post)
-	if err != nil {
-		helpers.ResponseNoPayload(w, 500)
-		return
-	}
-	helpers.ResponseWithPayload(w, 200, jsonPost)
+
+	helpers.ResponseWithPayload(w, 200, []byte(`{"msg":"post made successfully"}`))
 }

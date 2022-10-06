@@ -13,7 +13,7 @@ services:
   rabbitmq:
     image: 'rabbitmq:3-management'
     ports:
-      - "5672:5672"
+#      - "5672:5672"
       - "15672:15672"
     deploy:
       mode: replicated
@@ -25,18 +25,21 @@ services:
     build:
       context: ./authentication-service
       dockerfile: ./authentication-service.dockerfile
-    ports:
-      - "9000:9000"
+#    ports:
+#      - "8080:9000"
     restart: always
     deploy:
       mode: replicated
       replicas: 1
+    environment:
+      DSN: "user=bernardn host=host.docker.internal dbname=identity_service sslmode=disable"
+
   post-service:
       build:
         context: ./post-service
         dockerfile: ./post-service.dockerfile
-      ports:
-        - "9001:9001"
+#      ports:
+#        - "8080:9001"
       restart: always
       deploy:
         mode: replicated

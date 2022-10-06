@@ -15,7 +15,7 @@
         {
           "url_pattern": "/login",
           "host": [
-            "http://host.docker.internal:9000"
+            "http://authentication-service:9000"
           ]
         }
       ]
@@ -28,7 +28,7 @@
         {
           "url_pattern": "/register",
           "host": [
-            "http://host.docker.internal:9000"
+            "http://authentication-service:9000"
           ]
         }
       ]
@@ -45,7 +45,7 @@
         {
           "url_pattern": "/posts",
           "host": [
-            "http://host.docker.internal:9001"
+            "http://post-service:9001"
           ]
         }
       ]
