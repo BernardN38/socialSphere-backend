@@ -1,0 +1,43 @@
+version: '3.3'
+
+services:
+  krakend:
+    image: devopsfaith/krakend
+    volumes:
+      - "./api-gateway/config:/etc/krakend/"
+    ports:
+      - "1234:1234"
+      - "8080:8080"
+      - "8090:8090"
+    command: [ "run", "-d", "-c", "/etc/krakend/krakend.json" ]
+  rabbitmq:
+    image: 'rabbitmq:3-management'
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    deploy:
+      mode: replicated
+      replicas: 1
+    volumes:
+      - ./db-data/rabbitmq/:/var/lib/rabbitmq/
+
+  authentication-service:
+    build:
+      context: ./authentication-service
+      dockerfile: ./authentication-service.dockerfile
+    ports:
+      - "9000:9000"
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+  post-service:
+      build:
+        context: ./post-service
+        dockerfile: ./post-service.dockerfile
+      ports:
+        - "9001:9001"
+      restart: always
+      deploy:
+        mode: replicated
+        replicas: 1

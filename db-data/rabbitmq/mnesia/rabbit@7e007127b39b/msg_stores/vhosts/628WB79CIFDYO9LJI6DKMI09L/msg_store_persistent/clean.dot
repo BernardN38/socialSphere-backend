@@ -1,0 +1,2 @@
+{client_refs,[<<62,17,29,235,126,197,245,154,198,150,84,231,251,99,180,224>>]}.
+{index_module,rabbit_msg_store_ets_index}.

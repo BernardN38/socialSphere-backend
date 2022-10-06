@@ -1,0 +1,55 @@
+{
+  "$schema": "https://www.krakend.io/schema/v3.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/login",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "method": "POST",
+      "backend": [
+        {
+          "url_pattern": "/login",
+          "host": [
+            "http://host.docker.internal:9000"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/register",
+      "output_encoding": "no-op",
+      "method": "POST",
+      "backend": [
+        {
+          "url_pattern": "/register",
+          "host": [
+            "http://host.docker.internal:9000"
+          ]
+        }
+      ]
+    }, {
+      "endpoint": "/posts",
+      "output_encoding": "no-op",
+      "method": "POST",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts",
+          "host": [
+            "http://host.docker.internal:9001"
+          ]
+        }
+      ]
+    }
+  ],
+  "extra_config": { }
+}
