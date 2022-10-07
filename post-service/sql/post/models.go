@@ -11,9 +11,10 @@ import (
 )
 
 type Post struct {
-	ID        uuid.UUID
-	Body      string
-	Author    uuid.UUID
-	ImageID   uuid.NullUUID
-	CreatedAt time.Time
+	ID         uuid.UUID
+	Body       string
+	Author     uuid.UUID
+	AuthorName string
+	ImageID    uuid.NullUUID
+	CreatedAt  time.Time
 }

@@ -25,14 +25,15 @@ func NewManager(secret []byte, SigningMethod jwt.Algorithm) *Manager {
 func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Cookie")
+
 		tokenString := strings.TrimPrefix(auth, "jwtToken=")
 		token, ok := tm.VerifyToken(tokenString)
 		if !ok {
 			helpers.ResponseNoPayload(w, 401)
 			return
 		}
-		log.Println(token)
-		ctx := context.WithValue(r.Context(), "token", token)
+
+		ctx := context.WithValue(r.Context(), "userId", token.ID)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

@@ -1,3 +1,6 @@
+-- name: GetAllPosts :many
+SELECT *
+FROM post;
 
 -- name: GetPostById :one
 SELECT *
@@ -9,14 +12,15 @@ SELECT *
 FROM post
 WHERE author = $1;
 
--- name: ListPosts :many
+-- name: GetPostByUserIdPaged :many
 SELECT *
 FROM post
-ORDER BY id;
+WHERE author = $1
+ORDER BY created_at limit $2 offset $3;
 
 -- name: CreatePost :one
-INSERT INTO post(body,author,image_id,created_at)
-VALUES ($1, $2, $3, $4) RETURNING *;
+INSERT INTO post(body,author,author_name,image_id,created_at)
+VALUES ($1, $2, $3, $4, $5) RETURNING *;
 
 -- name: DeletePostByUserId :exec
 DELETE

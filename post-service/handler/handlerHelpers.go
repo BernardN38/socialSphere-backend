@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"gopkg.in/go-playground/validator.v9"
+	"strconv"
 )
 
 func ValidatePostForm(reqBody []byte) (*Post, error) {
@@ -19,4 +21,33 @@ func ValidatePostForm(reqBody []byte) (*Post, error) {
 	}
 
 	return &form, nil
+}
+
+type PaginationForm struct {
+	PageSize int64 `json:"pageSize" validate:"required,min=1"`
+	PageNo   int64 `json:"pageNo" validate:"required,min=1"`
+}
+
+func ValidatePagination(pageSize string, pageNo string) (int32, int32, error) {
+
+	parsedPageSize, err := strconv.ParseInt(pageSize, 10, 64)
+	if err != nil {
+		parsedPageSize = 10
+		return 0, 0, errors.New("invalid pageSize")
+	}
+	parsedPageNo, err := strconv.ParseInt(pageNo, 10, 64)
+	if err != nil {
+		return 0, 0, errors.New("invalid pageNo")
+	}
+	form := PaginationForm{
+		PageSize: parsedPageSize,
+		PageNo:   parsedPageNo,
+	}
+	v := validator.New()
+	err = v.Struct(form)
+	if err != nil {
+		return 0, 0, err
+	}
+	offset := (parsedPageNo - 1) * parsedPageSize
+	return int32(parsedPageSize), int32(offset), nil
 }

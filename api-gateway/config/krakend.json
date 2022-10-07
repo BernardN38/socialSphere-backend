@@ -49,7 +49,71 @@
           ]
         }
       ]
+    },
+    {
+      "endpoint": "/posts",
+      "input_query_strings": [
+        "pageSize",
+        "pageNo"
+      ],
+      "output_encoding": "no-op",
+      "method": "GET",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts",
+          "host": [
+            "http://post-service:9001"
+          ]
+        }
+      ]
+    },{
+      "endpoint": "/posts/{id}",
+      "output_encoding": "no-op",
+      "method": "GET",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts/{id}",
+          "host": [
+            "http://post-service:9001"
+          ]
+        }
+      ]
     }
   ],
-  "extra_config": { }
+  "extra_config": {
+    "security/cors": {
+      "allow_origins": [
+        "http://*"
+      ],
+      "allow_methods": [
+        "GET",
+        "HEAD",
+        "POST"
+      ],
+      "expose_headers": [
+        "Content-Length",
+        "Content-Type",
+        "Access-Control-Allow-Origin"
+      ],
+      "allow_headers": [
+        "Accept-Language",
+        "Content-Type",
+        "Authorization",
+        "Cookie"
+      ],
+      "max_age": "12h",
+      "allow_credentials": true,
+      "debug": false
+    }
+  }
 }

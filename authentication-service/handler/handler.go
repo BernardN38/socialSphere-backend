@@ -44,8 +44,8 @@ func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	form.Password = string(encryptedPassword)
 	err = CreateUser(handler.UsersDb, form)
 	if err != nil {
-		log.Println(err)
-		helpers.ResponseWithPayload(w, 400, []byte("Error registering user"))
+
+		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
 		return
 	}
 	helpers.ResponseWithPayload(w, 200, []byte("Register Success"))
@@ -60,7 +60,6 @@ func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reqBody, _ := io.ReadAll(r.Body)
-
 	form, err := ValidateLoginForm(reqBody)
 	if err != nil {
 		log.Println(err)
@@ -69,7 +68,7 @@ func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := handler.UsersDb.GetUserByUsername(context.Background(), form.Username)
 	if err != nil {
-		log.Println(err)
+		helpers.ResponseWithPayload(w, 404, []byte("user not found"))
 		return
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(form.Password))

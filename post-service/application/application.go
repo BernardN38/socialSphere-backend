@@ -11,11 +11,13 @@ import (
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
+	"os"
 )
 
 type Config struct {
 	jwtSecretKey     string
 	jwtSigningMethod jwt.Algorithm
+	dsn              string
 }
 type App struct {
 	srv          server
@@ -30,7 +32,8 @@ type server struct {
 
 func New() *App {
 	app := App{}
-	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.HS256}
+	dsn := os.Getenv("DSN")
+	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.HS256, dsn: dsn}
 	app.runAppSetup(config)
 	return &app
 }
@@ -40,7 +43,7 @@ func (app *App) Run() {
 }
 
 func (app *App) runAppSetup(config Config) {
-	db, err := sql.Open("postgres", "user=bernardn host=localhost dbname=post_service sslmode=disable")
+	db, err := sql.Open("postgres", config.dsn)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,11 +64,12 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 	router.Use(tm.VerifyJwtToken)
 	router.Post("/posts", handler.CreatePost)
+	router.Get("/posts", handler.GetAllPosts)
 	router.Get("/posts/{id}", handler.GetPost)
 	return router
 }

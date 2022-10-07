@@ -13,21 +13,23 @@ import (
 )
 
 const createPost = `-- name: CreatePost :one
-INSERT INTO post(body,author,image_id,created_at)
-VALUES ($1, $2, $3, $4) RETURNING id, body, author, image_id, created_at
+INSERT INTO post(body,author,author_name,image_id,created_at)
+VALUES ($1, $2, $3, $4, $5) RETURNING id, body, author, author_name, image_id, created_at
 `
 
 type CreatePostParams struct {
-	Body      string
-	Author    uuid.UUID
-	ImageID   uuid.NullUUID
-	CreatedAt time.Time
+	Body       string
+	Author     uuid.UUID
+	AuthorName string
+	ImageID    uuid.NullUUID
+	CreatedAt  time.Time
 }
 
 func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, error) {
 	row := q.db.QueryRowContext(ctx, createPost,
 		arg.Body,
 		arg.Author,
+		arg.AuthorName,
 		arg.ImageID,
 		arg.CreatedAt,
 	)
@@ -36,6 +38,7 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 		&i.ID,
 		&i.Body,
 		&i.Author,
+		&i.AuthorName,
 		&i.ImageID,
 		&i.CreatedAt,
 	)
@@ -64,8 +67,43 @@ func (q *Queries) DeletePostByUserId(ctx context.Context, author uuid.UUID) erro
 	return err
 }
 
+const getAllPosts = `-- name: GetAllPosts :many
+SELECT id, body, author, author_name, image_id, created_at
+FROM post
+`
+
+func (q *Queries) GetAllPosts(ctx context.Context) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, getAllPosts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Post
+	for rows.Next() {
+		var i Post
+		if err := rows.Scan(
+			&i.ID,
+			&i.Body,
+			&i.Author,
+			&i.AuthorName,
+			&i.ImageID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPostById = `-- name: GetPostById :one
-SELECT id, body, author, image_id, created_at
+SELECT id, body, author, author_name, image_id, created_at
 FROM post
 WHERE id = $1 LIMIT 1
 `
@@ -77,14 +115,58 @@ func (q *Queries) GetPostById(ctx context.Context, id uuid.UUID) (Post, error) {
 		&i.ID,
 		&i.Body,
 		&i.Author,
+		&i.AuthorName,
 		&i.ImageID,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
+const getPostByUserIdPaged = `-- name: GetPostByUserIdPaged :many
+SELECT id, body, author, author_name, image_id, created_at
+FROM post
+WHERE author = $1
+ORDER BY created_at limit $2 offset $3
+`
+
+type GetPostByUserIdPagedParams struct {
+	Author uuid.UUID
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) GetPostByUserIdPaged(ctx context.Context, arg GetPostByUserIdPagedParams) ([]Post, error) {
+	rows, err := q.db.QueryContext(ctx, getPostByUserIdPaged, arg.Author, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Post
+	for rows.Next() {
+		var i Post
+		if err := rows.Scan(
+			&i.ID,
+			&i.Body,
+			&i.Author,
+			&i.AuthorName,
+			&i.ImageID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPostsByUserId = `-- name: GetPostsByUserId :many
-SELECT id, body, author, image_id, created_at
+SELECT id, body, author, author_name, image_id, created_at
 FROM post
 WHERE author = $1
 `
@@ -102,41 +184,7 @@ func (q *Queries) GetPostsByUserId(ctx context.Context, author uuid.UUID) ([]Pos
 			&i.ID,
 			&i.Body,
 			&i.Author,
-			&i.ImageID,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPosts = `-- name: ListPosts :many
-SELECT id, body, author, image_id, created_at
-FROM post
-ORDER BY id
-`
-
-func (q *Queries) ListPosts(ctx context.Context) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, listPosts)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Post
-	for rows.Next() {
-		var i Post
-		if err := rows.Scan(
-			&i.ID,
-			&i.Body,
-			&i.Author,
+			&i.AuthorName,
 			&i.ImageID,
 			&i.CreatedAt,
 		); err != nil {
@@ -156,7 +204,7 @@ func (q *Queries) ListPosts(ctx context.Context) ([]Post, error) {
 const updatePost = `-- name: UpdatePost :one
 UPDATE post
 SET body = $2
-WHERE id = $1 RETURNING id, body, author, image_id, created_at
+WHERE id = $1 RETURNING id, body, author, author_name, image_id, created_at
 `
 
 type UpdatePostParams struct {
@@ -171,6 +219,7 @@ func (q *Queries) UpdatePost(ctx context.Context, arg UpdatePostParams) (Post, e
 		&i.ID,
 		&i.Body,
 		&i.Author,
+		&i.AuthorName,
 		&i.ImageID,
 		&i.CreatedAt,
 	)

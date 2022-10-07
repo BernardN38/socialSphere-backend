@@ -43,10 +43,12 @@ func (app *App) Run() {
 }
 
 func (app *App) runAppSetup(config Config) {
+	log.Printf(config.dsn)
 	db, err := sql.Open("postgres", config.dsn)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	queries := users.New(db)
 	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
 	h := &handler.Handler{UsersDb: queries, TokenManager: tokenManger}
@@ -60,11 +62,11 @@ func (app *App) runAppSetup(config Config) {
 func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowedOrigins:   []string{"https://*", "http://*", "null"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
