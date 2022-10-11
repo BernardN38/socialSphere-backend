@@ -2,6 +2,6 @@ FROM alpine:latest
 
 RUN mkdir /app
 
-COPY postApp /app
+COPY imageApp /app
 
-CMD [ "/app/postApp"]
+CMD [ "/app/imageApp"]

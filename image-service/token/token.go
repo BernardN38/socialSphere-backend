@@ -3,7 +3,7 @@ package token
 import (
 	"context"
 	"encoding/json"
-	"github.com/bernardn38/socialsphere/post-service/helpers"
+	"github.com/bernardn38/socialsphere/image-service/helpers"
 	"github.com/cristalhq/jwt/v4"
 	"log"
 	"net/http"

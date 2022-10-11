@@ -27,7 +27,7 @@ func NewManager(secret []byte, SigningMethod jwt.Algorithm) *Manager {
 		SigningMethod: SigningMethod,
 	}
 }
-func (tm *Manager) GenerateToken(userId string) (*jwt.Token, error) {
+func (tm *Manager) GenerateToken(userId string, TTL time.Duration) (*jwt.Token, error) {
 	signer, err := jwt.NewSignerHS(tm.SigningMethod, tm.Secret)
 	if err != nil {
 		log.Println(err)
@@ -37,7 +37,7 @@ func (tm *Manager) GenerateToken(userId string) (*jwt.Token, error) {
 	// create claims (you can create your own, see: Example_BuildUserClaims)
 	claims := &jwt.RegisteredClaims{
 		ID:        userId,
-		ExpiresAt: &jwt.NumericDate{Time: time.Now().Add(time.Minute * 10)},
+		ExpiresAt: &jwt.NumericDate{Time: time.Now().Add(TTL)},
 		IssuedAt:  &jwt.NumericDate{Time: time.Now()},
 	}
 

@@ -86,9 +86,9 @@ func SetCookie(w http.ResponseWriter, token *jwt.Token) {
 		Value:      token.String(),
 		Path:       "/",
 		Domain:     "localhost",
-		Expires:    time.Now().Add(time.Minute * 5),
+		Expires:    time.Now().Add(time.Minute * 60),
 		RawExpires: "",
-		MaxAge:     360,
+		MaxAge:     3600,
 		Secure:     false,
 		HttpOnly:   true,
 		SameSite:   1,
@@ -100,7 +100,7 @@ func SetCookie(w http.ResponseWriter, token *jwt.Token) {
 }
 
 func UpdateCookie(w http.ResponseWriter, handler *Handler, userId string) {
-	newToken, err := handler.TokenManager.GenerateToken(userId)
+	newToken, err := handler.TokenManager.GenerateToken(userId, time.Minute*60)
 	if err != nil {
 		return
 	}

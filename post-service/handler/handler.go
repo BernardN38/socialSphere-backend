@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/bernardn38/socialsphere/post-service/helpers"
+	"github.com/bernardn38/socialsphere/post-service/imageServiceBroker"
 	"github.com/bernardn38/socialsphere/post-service/sql/post"
 	"github.com/bernardn38/socialsphere/post-service/token"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"io"
 	"log"
 	"net/http"
 	"time"
@@ -17,13 +17,13 @@ import (
 type Handler struct {
 	PostDb       *post.Queries
 	TokenManager *token.Manager
+	Emitter      *imageServiceBroker.Emitter
 }
 
 type Post struct {
 	Body       string    `json:"body" validate:"required"`
 	Author     uuid.UUID `json:"author" validate:"required"'`
 	AuthorName string    `json:"authorName" validate:"required"`
-	Image      []byte    `json:"image"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
@@ -35,27 +35,44 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithPayload(w, 500, []byte("user id is invalid"))
 		return
 	}
-	log.Println("creating post")
-	body, err := io.ReadAll(r.Body)
+
+	err = r.ParseMultipartForm(10 << 20)
 	if err != nil {
-		helpers.ResponseNoPayload(w, 500)
+		log.Println(err)
 		return
 	}
-	formData, err := ValidatePostForm(body)
-	if err != nil {
-		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
-		return
+	body := r.MultipartForm.Value["body"]
+	if len(body) < 1 {
+		helpers.ResponseNoPayload(w, 400)
 	}
+	authorName := r.MultipartForm.Value["authorName"]
+	if len(authorName) < 1 {
+		helpers.ResponseNoPayload(w, 400)
+	}
+	file, err := r.MultipartForm.File["image"][0].Open()
+	if err != nil {
+		log.Println(err)
+		helpers.ResponseNoPayload(w, 400)
+	}
+
+	imageId := uuid.New()
 	createdPost, err := handler.PostDb.CreatePost(context.Background(), post.CreatePostParams{
-		Body:       formData.Body,
+		Body:       body[0],
 		Author:     parsedId,
-		AuthorName: formData.AuthorName,
-		ImageID:    uuid.NullUUID{},
-		CreatedAt:  time.Now(),
+		AuthorName: authorName[0],
+		ImageID: uuid.NullUUID{
+			UUID:  imageId,
+			Valid: true,
+		},
+		CreatedAt: time.Now().UTC(),
 	})
 	if err != nil {
 		helpers.ResponseWithPayload(w, 500, []byte(err.Error()))
 		return
+	}
+	err = SendImageToQueue(file, handler, imageId)
+	if err != nil {
+		log.Println(err)
 	}
 	helpers.ResponseWithPayload(w, http.StatusCreated, []byte(fmt.Sprintf(`{Post created with id: "%s"}`, createdPost.ID)))
 }

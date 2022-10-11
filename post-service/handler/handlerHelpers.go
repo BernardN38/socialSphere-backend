@@ -1,9 +1,14 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/google/uuid"
 	"gopkg.in/go-playground/validator.v9"
+	"io"
+	"log"
+	"mime/multipart"
 	"strconv"
 )
 
@@ -50,4 +55,16 @@ func ValidatePagination(pageSize string, pageNo string) (int32, int32, error) {
 	}
 	offset := (parsedPageNo - 1) * parsedPageSize
 	return int32(parsedPageSize), int32(offset), nil
+}
+
+func SendImageToQueue(file multipart.File, handler *Handler, imageId uuid.UUID) error {
+	buf := bytes.NewBuffer(nil)
+	if _, err := io.Copy(buf, file); err != nil {
+		log.Println(err)
+	}
+	err := handler.Emitter.Push(buf.Bytes(), "image-service", imageId.String())
+	if err != nil {
+		return err
+	}
+	return nil
 }

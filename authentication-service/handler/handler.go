@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Handler struct {
@@ -76,8 +77,7 @@ func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, 401)
 		return
 	}
-
-	newToken, err := handler.TokenManager.GenerateToken(user.ID.String())
+	newToken, err := handler.TokenManager.GenerateToken(user.ID.String(), time.Minute*60)
 	if err != nil {
 		return
 	}
