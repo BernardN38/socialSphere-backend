@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"time"
 )
@@ -48,19 +49,25 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	if len(authorName) < 1 {
 		helpers.ResponseNoPayload(w, 400)
 	}
-	file, err := r.MultipartForm.File["image"][0].Open()
-	if err != nil {
-		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+	var file multipart.File
+	var imageId uuid.UUID
+	var valid bool
+	if len(r.MultipartForm.File["image"]) > 0 {
+		file, err = r.MultipartForm.File["image"][0].Open()
+		if err != nil {
+			log.Println(err)
+			helpers.ResponseNoPayload(w, 400)
+		}
+		imageId = uuid.New()
+		valid = true
 	}
-	imageId := uuid.New()
 	createdPost, err := handler.PostDb.CreatePost(context.Background(), post.CreatePostParams{
 		Body:       body[0],
 		Author:     parsedId,
 		AuthorName: authorName[0],
 		ImageID: uuid.NullUUID{
 			UUID:  imageId,
-			Valid: true,
+			Valid: valid,
 		},
 		CreatedAt: time.Now().UTC(),
 	})
@@ -68,10 +75,13 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithPayload(w, 500, []byte(err.Error()))
 		return
 	}
-	err = SendImageToQueue(file, handler, imageId)
-	if err != nil {
-		log.Println(err)
+	if file != nil {
+		err = SendImageToQueue(file, handler, imageId)
+		if err != nil {
+			log.Println(err)
+		}
 	}
+
 	helpers.ResponseWithPayload(w, http.StatusCreated, []byte(fmt.Sprintf(`{Post created with id: "%s"}`, createdPost.ID)))
 }
 
@@ -129,4 +139,14 @@ func (handler *Handler) GetAllPosts(w http.ResponseWriter, r *http.Request) {
 		Timestamp: time.Now(),
 	}
 	helpers.ResponseWithJson(w, 200, jsonResponse)
+}
+
+func (handler *Handler) DeletePost(w http.ResponseWriter, r *http.Request) {
+	userId := r.Context().Value("userId")
+	postId := chi.URLParam(r, "postId")
+
+	, id := handler.PostDb.GetPostById(context.Background(), postId)
+	if id != nil {
+		return 
+	}
 }

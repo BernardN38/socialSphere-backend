@@ -30,7 +30,7 @@ WHERE author = $1;
 -- name: DeletePostById :exec
 DELETE
 FROM post
-WHERE id = $1;
+WHERE id = $1 AND userId = $2;
 
 
 -- name: UpdatePost :one
