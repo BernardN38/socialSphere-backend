@@ -32,6 +32,7 @@ services:
       - APP_DB_PASS=password
       - AUTH_DB_NAME=authentication_service
       - POST_DB_NAME=post_service
+      - IMAGE_DB_NAME=image_service
     logging:
       options:
         max-size: 10m
@@ -59,8 +60,6 @@ services:
       build:
         context: ./post-service
         dockerfile: ./post-service.dockerfile
-      ports:
-        - "9001:9001"
       restart: always
       deploy:
         mode: replicated
@@ -72,13 +71,11 @@ services:
     build:
       context: ./image-service
       dockerfile: ./image-service.dockerfile
-    ports:
-      - "9002:9000"
     restart: always
     deploy:
       mode: replicated
       replicas: 1
     environment:
       AWS_DEFAULT_REGION: "us-east-1"
-      AWS_SECRET_ACCESS_KEY: "xmx0h1gnTJSzZ+b/NK9PoamWVINbil3hH2VXlJ2d"
-      AWS_ACCESS_KEY_ID: "AKIAW4TJBTTCNX7VUPPO"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"

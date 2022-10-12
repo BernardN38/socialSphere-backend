@@ -85,7 +85,7 @@
         {
           "url_pattern": "/posts/{id}",
           "host": [
-            "http://post-service:9001"
+            "http://post-service"
           ]
         }
       ]
@@ -104,6 +104,45 @@
       "backend": [
         {
           "url_pattern": "/image",
+          "host": [
+            "http://image-service:9000"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/image/{imageId}",
+      "output_encoding": "no-op",
+      "method": "GET",
+      "timeout": "10000ms",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/image/{imageId}",
+          "host": [
+            "http://image-service:9000"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/images",
+      "output_encoding": "no-op",
+      "method": "GET",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/images",
           "host": [
             "http://image-service:9000"
           ]

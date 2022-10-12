@@ -35,7 +35,6 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithPayload(w, 500, []byte("user id is invalid"))
 		return
 	}
-
 	err = r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		log.Println(err)
@@ -54,7 +53,6 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, 400)
 	}
-
 	imageId := uuid.New()
 	createdPost, err := handler.PostDb.CreatePost(context.Background(), post.CreatePostParams{
 		Body:       body[0],

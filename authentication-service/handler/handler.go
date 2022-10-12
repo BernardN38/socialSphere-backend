@@ -29,7 +29,6 @@ type LoginForm struct {
 }
 
 func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
-	log.Println("Registering user")
 	reqBody, _ := io.ReadAll(r.Body)
 	form, err := ValidateRegisterForm(reqBody)
 	if err != nil {
@@ -49,11 +48,11 @@ func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
 		return
 	}
+	log.Println("Register successful username: ", form.Username)
 	helpers.ResponseWithPayload(w, 200, []byte("Register Success"))
 }
 
 func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
-	log.Println("Logging in User")
 	cookie, ok := CheckForValidCookie(r, handler)
 	if ok {
 		UpdateCookie(w, handler, cookie.ID)
@@ -81,7 +80,7 @@ func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	log.Println("Log in successful")
+	log.Println("Log in successful userId: ", user.ID)
 	SetCookie(w, newToken)
 	helpers.ResponseWithPayload(w, 200, []byte(newToken.String()))
 }

@@ -78,10 +78,11 @@ func GetImageFromS3(key string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	download, err := downloader.Download(file, &s3.GetObjectInput{Bucket: aws.String("image-service-socialsphere"), Key: aws.String(key)})
+	_, err = downloader.Download(file, &s3.GetObjectInput{Bucket: aws.String("image-service-socialsphere"), Key: aws.String(key)})
 	if err != nil {
+		log.Println(err)
 		return nil, err
 	}
-	log.Println("Download: ", download)
+
 	return file, err
 }

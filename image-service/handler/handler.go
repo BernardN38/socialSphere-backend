@@ -2,8 +2,10 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/bernardn38/socialsphere/image-service/helpers"
+	"github.com/bernardn38/socialsphere/image-service/sql/userImages"
 	"github.com/bernardn38/socialsphere/image-service/token"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -15,6 +17,22 @@ import (
 
 type Handler struct {
 	TokenManager *token.Manager
+	UserImageDB  *userImages.Queries
+}
+
+func (handler *Handler) GetUserImages(w http.ResponseWriter, r *http.Request) {
+	userId := r.Context().Value("userId")
+	parsedId, err := uuid.Parse(userId.(string))
+	if err != nil {
+		helpers.ResponseWithJson(w, 400, helpers.JsonResponse{Msg: "invalid user id"})
+		return
+	}
+	ids, err := handler.UserImageDB.GetImagesByUserId(context.Background(), parsedId)
+	if err != nil {
+		helpers.ResponseWithJson(w, 500, helpers.JsonResponse{Msg: "error retrieving imageIds"})
+		return
+	}
+	helpers.ResponseWithJson(w, 200, helpers.JsonResponse{Data: ids})
 }
 
 func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
@@ -64,10 +82,8 @@ func (handler *Handler) GetImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "image/jpeg")
-	written, err := io.Copy(w, file)
+	_, err = io.Copy(w, file)
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println(written)
-	//helpers.ResponseWithPayload(w, 200, resp)
 }

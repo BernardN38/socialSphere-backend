@@ -1,0 +1,7 @@
+version: 1
+packages:
+  - path: "userImages"
+    name: "userImages"
+    engine: "postgresql"
+    schema: "schema.sql"
+    queries: "query.sql"

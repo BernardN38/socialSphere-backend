@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"github.com/bernardn38/socialsphere/image-service/handler"
 	"github.com/bernardn38/socialsphere/image-service/helpers"
+	"github.com/bernardn38/socialsphere/image-service/sql/userImages"
 	"github.com/bernardn38/socialsphere/image-service/token"
 	"github.com/cristalhq/jwt/v4"
 	"github.com/go-chi/chi/v5"
@@ -41,7 +42,7 @@ func New() *App {
 	return &app
 }
 func (app *App) Run() {
-	log.Printf("listening on port %s", "9001")
+	log.Printf("listening on port %s", "9000")
 	log.Fatal(http.ListenAndServe(":9000", app.srv.router))
 }
 
@@ -50,9 +51,11 @@ func (app *App) runAppSetup(config Config) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	queries := userImages.New(db)
 	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
-	h := &handler.Handler{TokenManager: tokenManger}
-	for i := 0; i < 500; i++ {
+	h := &handler.Handler{TokenManager: tokenManger, UserImageDB: queries}
+
+	for i := 0; i < 10; i++ {
 		go ListenForMessages(&config)
 	}
 	app.srv.router = SetupRouter(h, tokenManger)
@@ -74,10 +77,11 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 	router.Use(tm.VerifyJwtToken)
 	router.Post("/image", handler.UploadImage)
 	router.Get("/image/{imageId}", handler.GetImage)
+	router.Get("/images", handler.GetUserImages)
 	return router
 }
 func ListenForMessages(config *Config) {
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 20)
 	conn := connectToRabbitMQ(config.rabbitmqUrl)
 
 	channel, err := conn.Channel()
@@ -95,7 +99,11 @@ func ListenForMessages(config *Config) {
 	var forever chan struct{}
 
 	for d := range messages {
-		helpers.UploadToS3(d.Body, d.Headers["imageId"].(string))
+		err := helpers.UploadToS3(d.Body, d.Headers["imageId"].(string))
+		if err != nil {
+			d.Ack(false)
+			return
+		}
 		d.Ack(true)
 	}
 	<-forever
