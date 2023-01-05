@@ -1,0 +1,91 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/bernardn38/socialsphere/messaging-service/helpers"
+	"github.com/bernardn38/socialsphere/messaging-service/token"
+	"github.com/go-chi/chi"
+	"github.com/go-redis/redis/v8"
+	"github.com/gorilla/websocket"
+)
+
+type Handler struct {
+	TokenManager *token.Manager
+	Upgrader     websocket.Upgrader
+	Conns        map[string]*websocket.Conn
+	Rdb          *redis.Client
+}
+
+var ctx = context.Background()
+
+func (handler *Handler) CheckOnline(w http.ResponseWriter, r *http.Request) {
+	log.Println(handler.Conns)
+	userId := chi.URLParam(r, "userId")
+	if handler.Conns[userId] == nil {
+		helpers.ResponseNoPayload(w, 404)
+		return
+	}
+	helpers.ResponseNoPayload(w, 200)
+}
+
+func (handler *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
+
+	userId := r.Context().Value("userId").(string)
+	username := r.Context().Value("username").(string)
+	log.Println(userId, "Connected")
+
+	ws, err := handler.Upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	handler.Conns[userId] = ws
+	pubsub := handler.Rdb.Subscribe(ctx, userId)
+	defer pubsub.Close()
+	for {
+		var req Request
+		err := ws.ReadJSON(&req)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		req.Timestamp = time.Now()
+		req.From = userId
+		req.FromUserName = username
+		message, _ := json.Marshal(req)
+		err = handler.Rdb.Publish(ctx, userId, message).Err()
+		if err != nil {
+			log.Println(err)
+		}
+		// if userId == req.To {
+		// 	continue
+		// }
+		if conn, ok := handler.Conns[req.To]; ok {
+			msg, err := pubsub.ReceiveMessage(ctx)
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Println(msg.Channel, msg.Payload)
+			err = conn.WriteJSON(msg)
+			if err != nil {
+				log.Panicln(err)
+			}
+		}
+	}
+}
+
+type Request struct {
+	From         string    `json:"from,omitempty"`
+	FromUserName string    `json:"fromUserName,omitempty"`
+	To           string    `json:"to,omitempty"`
+	Message      string    `json:"message,omitempty"`
+	Subject      string    `json:"subject,omitempty"`
+	Timestamp    time.Time `json:"time,omitempty"`
+}

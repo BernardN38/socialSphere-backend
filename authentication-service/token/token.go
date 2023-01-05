@@ -3,12 +3,13 @@ package token
 import (
 	"context"
 	"encoding/json"
-	"github.com/bernardn38/socialsphere/authentication-service/helpers"
-	"github.com/cristalhq/jwt/v4"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/bernardn38/socialsphere/authentication-service/helpers"
+	"github.com/cristalhq/jwt/v4"
 )
 
 type Manager struct {
@@ -27,7 +28,7 @@ func NewManager(secret []byte, SigningMethod jwt.Algorithm) *Manager {
 		SigningMethod: SigningMethod,
 	}
 }
-func (tm *Manager) GenerateToken(userId string, TTL time.Duration) (*jwt.Token, error) {
+func (tm *Manager) GenerateToken(userId string, userName string, TTL time.Duration) (*jwt.Token, error) {
 	signer, err := jwt.NewSignerHS(tm.SigningMethod, tm.Secret)
 	if err != nil {
 		log.Println(err)
@@ -37,6 +38,7 @@ func (tm *Manager) GenerateToken(userId string, TTL time.Duration) (*jwt.Token, 
 	// create claims (you can create your own, see: Example_BuildUserClaims)
 	claims := &jwt.RegisteredClaims{
 		ID:        userId,
+		Subject:   userName,
 		ExpiresAt: &jwt.NumericDate{Time: time.Now().Add(TTL)},
 		IssuedAt:  &jwt.NumericDate{Time: time.Now()},
 	}

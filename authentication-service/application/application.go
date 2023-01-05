@@ -2,6 +2,10 @@ package application
 
 import (
 	"database/sql"
+	"log"
+	"net/http"
+	"os"
+
 	"github.com/bernardn38/socialsphere/authentication-service/handler"
 	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
 	"github.com/bernardn38/socialsphere/authentication-service/token"
@@ -9,9 +13,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
-	"log"
-	"net/http"
-	"os"
 )
 
 type Config struct {
@@ -38,8 +39,8 @@ func New() *App {
 	return &app
 }
 func (app *App) Run() {
-	log.Printf("listening on port %s", "9000")
-	log.Fatal(http.ListenAndServe(":9000", app.srv.router))
+	log.Printf("listening on port %s", "8080")
+	log.Fatal(http.ListenAndServe(":8080", app.srv.router))
 }
 
 func (app *App) runAppSetup(config Config) {

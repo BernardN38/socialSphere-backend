@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/google/uuid"
-	"gopkg.in/go-playground/validator.v9"
 	"io"
 	"log"
 	"mime/multipart"
 	"strconv"
+
+	"github.com/google/uuid"
+	"gopkg.in/go-playground/validator.v9"
 )
 
 func ValidatePostForm(reqBody []byte) (*Post, error) {
@@ -29,7 +30,7 @@ func ValidatePostForm(reqBody []byte) (*Post, error) {
 }
 
 type PaginationForm struct {
-	PageSize int64 `json:"pageSize" validate:"required,min=1"`
+	PageSize int64 `json:"pageSize" validate:"required,min=1,max=20"`
 	PageNo   int64 `json:"pageNo" validate:"required,min=1"`
 }
 
@@ -57,12 +58,22 @@ func ValidatePagination(pageSize string, pageNo string) (int32, int32, error) {
 	return int32(parsedPageSize), int32(offset), nil
 }
 
-func SendImageToQueue(file multipart.File, handler *Handler, imageId uuid.UUID) error {
+func SendImageToQueue(file multipart.File, handler *Handler, routingKey string, imageId uuid.UUID, contentType string) error {
 	buf := bytes.NewBuffer(nil)
 	if _, err := io.Copy(buf, file); err != nil {
 		log.Println(err)
 	}
-	err := handler.Emitter.Push(buf.Bytes(), "image-service", imageId.String())
+	// err := handler.Emitter.Push(buf.Bytes(), "image-service", imageId.String())
+	err := handler.Emitter.Push(buf.Bytes(), "image-service", routingKey, imageId.String(), contentType)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
+}
+
+func SendDeleteToQueue(routingKey string, imageId uuid.UUID, handler *Handler) error {
+	err := handler.Emitter.Push(nil, "image-service", routingKey, imageId.String(), "")
 	if err != nil {
 		return err
 	}

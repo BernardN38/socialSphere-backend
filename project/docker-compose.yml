@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  krakend:
+    image: devopsfaith/krakend:2.0
+    volumes:
+      - "../api-gateway/config:/etc/krakend/"
+    ports:
+      - "1234:1234"
+      - "8080:8080"
+      - "8090:8090"
+    command: [ "run", "-d", "-c", "/etc/krakend/krakend.json" ]
+
+  rabbitmq:
+    image: 'rabbitmq:3-management'
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    deploy:
+      mode: replicated
+      replicas: 1
+    volumes:
+      - ../rabbit-init/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ../rabbit-init/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ../db-data/rabbitmq/:/var/lib/rabbitmq/
+
+  postgres:
+    image: postgres:14-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=bernardn
+      - POSTGRES_PASSWORD=password
+      - APP_DB_USER=postgres
+      - APP_DB_PASS=password
+      - AUTH_DB_NAME=authentication_service
+      - POST_DB_NAME=post_service
+      - IMAGE_DB_NAME=image_service
+      - IDENTITY_DB_NAME=identity_service
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - '5438:5432'
+    volumes:
+      - ../postgres-data:/var/lib/postgresql/data
+      - ../database-init:/docker-entrypoint-initdb.d/
+  
+  redis:
+    image: "redis:alpine"
+
+    command: redis-server --requirepass password
+
+    ports:
+     - "6379:6379"
+
+    volumes:
+     - $PWD/redis-data:/var/lib/redis
+      - $PWD/redis.conf:/usr/local/etc/redis/redis.conf
+
+    environment:
+     - REDIS_REPLICATION_MODE=master
+
+  image-proccessing-service-worker:
+    build:
+      context: ../image-proccessing-service-worker
+      dockerfile: ./image-proccessing-service-worker.dockerfile
+    ports:
+      - "5001:5001" 
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      AWS_DEFAULT_REGION: "us-east-1"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+
+  authentication-service:
+    build:
+      context: ../authentication-service
+      dockerfile: ./authentication-service.dockerfile
+    ports:
+      - "9000:9000"
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      DSN: "user=bernardn password=password host=postgres dbname=authentication_service port=5432 sslmode=disable"
+
+  post-service:
+      build:
+        context: ../post-service
+        dockerfile: ./post-service.dockerfile
+      restart: always
+      deploy:
+        mode: replicated
+        replicas: 1
+      environment:
+        DSN: "user=bernardn password=password host=postgres dbname=post_service port=5432 sslmode=disable"
+
+  image-service:
+    build:
+      context: ../image-service
+      dockerfile: ./image-service.dockerfile
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      AWS_DEFAULT_REGION: "us-east-1"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+
+  identity-service:
+    build:
+      context: ../identity-service
+      dockerfile: ./identity-service.dockerfile
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      DSN: "user=bernardn password=password host=postgres dbname=identity_service port=5432 sslmode=disable"
+  
+  messaging-service:
+    build: 
+      context: ../messaging-service
+      dockerfile: ./messaging-service.dockerfile
+    ports:
+      - "8081:8081"
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    
+

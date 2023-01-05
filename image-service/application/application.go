@@ -2,6 +2,11 @@ package application
 
 import (
 	"database/sql"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/bernardn38/socialsphere/image-service/handler"
 	"github.com/bernardn38/socialsphere/image-service/helpers"
 	"github.com/bernardn38/socialsphere/image-service/sql/userImages"
@@ -11,10 +16,6 @@ import (
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"log"
-	"net/http"
-	"os"
-	"time"
 )
 
 type Config struct {
@@ -42,8 +43,8 @@ func New() *App {
 	return &app
 }
 func (app *App) Run() {
-	log.Printf("listening on port %s", "9000")
-	log.Fatal(http.ListenAndServe(":9000", app.srv.router))
+	log.Printf("listening on port %s", "8080")
+	log.Fatal(http.ListenAndServe(":8080", app.srv.router))
 }
 
 func (app *App) runAppSetup(config Config) {
@@ -51,10 +52,10 @@ func (app *App) runAppSetup(config Config) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	queries := userImages.New(db)
 	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
 	h := &handler.Handler{TokenManager: tokenManger, UserImageDB: queries}
-
 	for i := 0; i < 10; i++ {
 		go ListenForMessages(&config)
 	}
@@ -81,7 +82,6 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 	return router
 }
 func ListenForMessages(config *Config) {
-	time.Sleep(time.Second * 20)
 	conn := connectToRabbitMQ(config.rabbitmqUrl)
 
 	channel, err := conn.Channel()
@@ -99,10 +99,33 @@ func ListenForMessages(config *Config) {
 	var forever chan struct{}
 
 	for d := range messages {
-		err := helpers.UploadToS3(d.Body, d.Headers["imageId"].(string))
-		if err != nil {
-			d.Ack(false)
-			return
+		switch messageType := d.RoutingKey; messageType {
+		case "upload":
+			imageId, ok  := d.Headers["imageId"].(string)
+			if !ok {
+				log.Println("image id invalid")
+				return
+			}
+			err := helpers.UploadToS3(d.Body, imageId)
+			if err != nil {
+				log.Println(err)
+				d.Ack(false)
+				return
+			}
+		case "delete":
+			imageId, ok  := d.Headers["imageId"].(string)
+			if !ok {
+				log.Println("image id invalid")
+				return
+			}
+			err := helpers.DeleteFromS3(imageId)
+			if err != nil {
+				log.Println(err)
+				d.Ack(false)
+				return
+			}
+		default:
+			log.Println("no case" + messageType)
 		}
 		d.Ack(true)
 	}

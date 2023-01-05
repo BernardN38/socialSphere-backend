@@ -3,16 +3,18 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
-	"github.com/cristalhq/jwt/v4"
-	"gopkg.in/go-playground/validator.v9"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
+	"github.com/cristalhq/jwt/v4"
+	"github.com/google/uuid"
+	"gopkg.in/go-playground/validator.v9"
 )
 
-func CreateUser(usersDb *users.Queries, form *RegisterForm) error {
+func CreateUser(usersDb *users.Queries, form *RegisterForm) (uuid.UUID, error) {
 	user := users.CreateUserParams{
 		Username:  form.Username,
 		Password:  form.Password,
@@ -20,12 +22,12 @@ func CreateUser(usersDb *users.Queries, form *RegisterForm) error {
 		FirstName: form.FirstName,
 		LastName:  form.LastName,
 	}
-	_, err := usersDb.CreateUser(context.Background(), user)
+	createdUser, err := usersDb.CreateUser(context.Background(), user)
 	if err != nil {
 		log.Println(err)
-		return err
+		return uuid.UUID{}, err
 	}
-	return nil
+	return createdUser.ID, nil
 }
 
 func ValidateRegisterForm(reqBody []byte) (*RegisterForm, error) {
@@ -99,8 +101,8 @@ func SetCookie(w http.ResponseWriter, token *jwt.Token) {
 	log.Println("cookie set", cookie)
 }
 
-func UpdateCookie(w http.ResponseWriter, handler *Handler, userId string) {
-	newToken, err := handler.TokenManager.GenerateToken(userId, time.Minute*60)
+func UpdateCookie(w http.ResponseWriter, handler *Handler, userId string, username string) {
+	newToken, err := handler.TokenManager.GenerateToken(userId, username, time.Minute*60)
 	if err != nil {
 		return
 	}

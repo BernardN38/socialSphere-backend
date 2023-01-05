@@ -2,6 +2,7 @@ package imageServiceBroker
 
 import (
 	"context"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -18,20 +19,32 @@ func (e *Emitter) setup() error {
 	return nil
 }
 
-func (e *Emitter) Push(event []byte, queue string, key string) error {
+func (e *Emitter) Push(event []byte, queue string, routingKey string, imageId string, contentType string) error {
 	channel, err := e.connection.Channel()
 	if err != nil {
 		return err
 	}
-	err = channel.PublishWithContext(context.Background(), "image-service", queue, false, false, amqp.Publishing{
-		DeliveryMode: amqp.Persistent, ContentType: "multipart", Body: event, Headers: map[string]interface{}{"imageId": key},
+	err = channel.PublishWithContext(context.Background(), "image-service", routingKey, false, false, amqp.Publishing{
+		DeliveryMode: amqp.Persistent, ContentType: "multipart", Body: event, Headers: map[string]interface{}{"imageId": imageId, "contentType": contentType},
 	})
 	if err != nil {
 		return err
 	}
 	return nil
 }
-
+func (e *Emitter) PushDelete(key string) error {
+	channel, err := e.connection.Channel()
+	if err != nil {
+		return err
+	}
+	err = channel.PublishWithContext(context.Background(), "image-service", "delete", false, false, amqp.Publishing{
+		DeliveryMode: amqp.Persistent, ContentType: "string", Body: []byte{}, Headers: map[string]interface{}{"imageId": key},
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
 func NewEventEmitter(conn *amqp.Connection) (Emitter, error) {
 	emitter := Emitter{
 		connection: conn,

@@ -1,0 +1,38 @@
+{
+	"folders": [
+		{
+			"path": "api-gateway"
+		},
+		{
+			"path": "database-init"
+		},
+		{
+			"path": "identity-service"
+		},
+		{
+			"path": "image-service"
+		},
+		{
+			"path": "post-service"
+		},
+		{
+			"path": "authentication-service"
+		},
+		{
+			"path": "project"
+		},
+		{
+			"path": "rabbit-init"
+		},
+		{
+			"path": "messaging-service"
+		},
+		{
+			"path": "image-proccessing-service-worker"
+		}
+	],
+	"settings": {
+		"java.compile.nullAnalysis.mode": "automatic",
+		"java.configuration.updateBuildConfiguration": "interactive"
+	}
+}

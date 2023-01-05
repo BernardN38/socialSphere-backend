@@ -2,6 +2,11 @@ package application
 
 import (
 	"database/sql"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/bernardn38/socialsphere/post-service/handler"
 	"github.com/bernardn38/socialsphere/post-service/imageServiceBroker"
 	"github.com/bernardn38/socialsphere/post-service/sql/post"
@@ -11,10 +16,6 @@ import (
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"log"
-	"net/http"
-	"os"
-	"time"
 )
 
 type Config struct {
@@ -42,8 +43,8 @@ func New() *App {
 	return &app
 }
 func (app *App) Run() {
-	log.Printf("listening on port %s", "9001")
-	log.Fatal(http.ListenAndServe(":9001", app.srv.router))
+	log.Printf("listening on port %s", "8080")
+	log.Fatal(http.ListenAndServe(":8080", app.srv.router))
 }
 
 func (app *App) runAppSetup(config Config) {
@@ -55,10 +56,6 @@ func (app *App) runAppSetup(config Config) {
 	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
 
 	conn := connectToRabbitMQ(config.rabbitmqUrl)
-	err = declareChannelQueue(conn)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	emitter, _ := imageServiceBroker.NewEventEmitter(conn)
 	h := &handler.Handler{PostDb: queries, TokenManager: tokenManger, Emitter: &emitter}
@@ -81,29 +78,16 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 	}))
 	router.Use(tm.VerifyJwtToken)
 	router.Post("/posts", handler.CreatePost)
-	router.Get("/posts", handler.GetAllPosts)
-	router.Get("/posts/{id}", handler.GetPost)
+	router.Get("/users/{userId}/posts", handler.GetPostsPageByUserId)
+	router.Get("/posts/{postId}", handler.GetPost)
+	router.Delete("/posts/{postId}", handler.DeletePost)
+	router.Get("/posts/{postId}/likes", handler.GetLikeCount)
+	router.Post("/posts/{postId}/likes", handler.CreatePostLike)
+	router.Delete("/posts/{postId}/likes", handler.DeleteLike)
+	router.Get("/posts/{postId}/likes/check", handler.CheckLike)
+	router.Post("/posts/{postId}/comments", handler.CreateComment)
+	router.Get("/posts/{postId}/comments", handler.GetAllPostComments)
 	return router
-}
-
-func declareChannelQueue(conn *amqp.Connection) error {
-	ch, err := conn.Channel()
-	if err != nil {
-		return err
-	}
-	err = ch.ExchangeDeclare("image-service", "direct", true, false, false, false, nil)
-	if err != nil {
-		return err
-	}
-	q, err := ch.QueueDeclare("image-service", true, false, false, false, nil)
-	if err != nil {
-		return err
-	}
-	err = ch.QueueBind(q.Name, "image-service", "image-service", false, nil)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func connectToRabbitMQ(rabbitUrl string) *amqp.Connection {

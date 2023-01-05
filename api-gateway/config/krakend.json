@@ -15,7 +15,7 @@
         {
           "url_pattern": "/login",
           "host": [
-            "http://authentication-service:9000"
+            "http://authentication-service:8080"
           ]
         }
       ]
@@ -28,11 +28,68 @@
         {
           "url_pattern": "/register",
           "host": [
-            "http://authentication-service:9000"
+            "http://authentication-service:8080"
           ]
         }
       ]
-    }, {
+    },{
+      "endpoint": "/users/{userId}",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/users/{userId}",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://identity-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/users/{userId}/profileImage",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/users/{userId}/profileImage",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://identity-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/users/profileImage",
+      "output_encoding": "no-op",
+      "method": "POST",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/users/profileImage",
+          "host": [
+            "http://identity-service:8080"
+          ]
+        }
+      ]
+    },
+     {
       "endpoint": "/posts",
       "output_encoding": "no-op",
       "method": "POST",
@@ -46,13 +103,13 @@
         {
           "url_pattern": "/posts",
           "host": [
-            "http://post-service:9001"
+            "http://post-service:8080"
           ]
         }
       ]
     },
     {
-      "endpoint": "/posts",
+      "endpoint": "/users/{userId}/posts",
       "input_query_strings": [
         "pageSize",
         "pageNo"
@@ -66,14 +123,14 @@
       ],
       "backend": [
         {
-          "url_pattern": "/posts",
+          "url_pattern": "/users/{userId}/posts",
           "host": [
-            "http://post-service:9001"
+            "http://post-service:8080"
           ]
         }
       ]
     },{
-      "endpoint": "/posts/{id}",
+      "endpoint": "/posts/{postId}",
       "output_encoding": "no-op",
       "method": "GET",
       "input_headers": [
@@ -83,9 +140,135 @@
       ],
       "backend": [
         {
-          "url_pattern": "/posts/{id}",
+          "url_pattern": "/posts/{postId}",
           "host": [
-            "http://post-service"
+            "http://post-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/posts/{postId}",
+      "output_encoding": "no-op",
+      "method": "DELETE",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts/{postId}",
+          "host": [
+            "http://post-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/posts/{postId}/likes",
+      "output_encoding": "no-op",
+      "method": "GET",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts/{postId}/likes",
+          "host": [
+            "http://post-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/posts/{postId}/likes",
+      "output_encoding": "no-op",
+      "method": "POST",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts/{postId}/likes",
+          "host": [
+            "http://post-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/posts/{postId}/likes",
+      "output_encoding": "no-op",
+      "method": "DELETE",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts/{postId}/likes",
+          "host": [
+            "http://post-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/posts/{postId}/likes/check",
+      "output_encoding": "no-op",
+      "method": "GET",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts/{postId}/likes/check",
+          "host": [
+            "http://post-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/posts/{postId}/comments",
+      "output_encoding": "no-op",
+      "method": "GET",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts/{postId}/comments",
+          "host": [
+            "http://post-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/posts/{postId}/comments",
+      "output_encoding": "no-op",
+      "method": "POST",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/posts/{postId}/comments",
+          "host": [
+            "http://post-service:8080"
           ]
         }
       ]
@@ -105,16 +288,15 @@
         {
           "url_pattern": "/image",
           "host": [
-            "http://image-service:9000"
+            "http://image-service:8080"
           ]
         }
       ]
     },
     {
-      "endpoint": "/image/{imageId}",
+      "endpoint": "/image/{id}",
       "output_encoding": "no-op",
       "method": "GET",
-      "timeout": "10000ms",
       "input_headers": [
         "User-Agent",
         "Accept",
@@ -123,9 +305,10 @@
       ],
       "backend": [
         {
-          "url_pattern": "/image/{imageId}",
+          "url_pattern": "/image/{id}",
+          "method": "GET",
           "host": [
-            "http://image-service:9000"
+            "http://image-service:8080"
           ]
         }
       ]
@@ -144,7 +327,7 @@
         {
           "url_pattern": "/images",
           "host": [
-            "http://image-service:9000"
+            "http://image-service:8080"
           ]
         }
       ]
@@ -158,7 +341,8 @@
       "allow_methods": [
         "GET",
         "HEAD",
-        "POST"
+        "POST",
+        "DELETE"
       ],
       "expose_headers": [
         "Content-Length",

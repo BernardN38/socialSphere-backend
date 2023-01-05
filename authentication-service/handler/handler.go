@@ -1,15 +1,18 @@
 package handler
 
 import (
+	"bytes"
 	"context"
-	"github.com/bernardn38/socialsphere/authentication-service/helpers"
-	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
-	"github.com/bernardn38/socialsphere/authentication-service/token"
-	"golang.org/x/crypto/bcrypt"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/bernardn38/socialsphere/authentication-service/helpers"
+	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
+	"github.com/bernardn38/socialsphere/authentication-service/token"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Handler struct {
@@ -42,12 +45,33 @@ func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	form.Password = string(encryptedPassword)
-	err = CreateUser(handler.UsersDb, form)
+	createdUserId, err := CreateUser(handler.UsersDb, form)
 	if err != nil {
-
 		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
 		return
 	}
+	body := make(map[string]interface{})
+	body["firstName"] = form.FirstName
+	body["lastName"] = form.LastName
+	body["userId"] = createdUserId
+	body["username"] = form.Username
+	body["email"] = form.Email
+
+	reqData, err := json.Marshal(body)
+	if err != nil {
+		log.Panicln(err)
+	}
+	resp, err := http.Post("http://identity-service:8080/users", "application/json", bytes.NewBuffer(reqData))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	log.Println(string(respBody))
 	log.Println("Register successful username: ", form.Username)
 	helpers.ResponseWithPayload(w, 200, []byte("Register Success"))
 }
@@ -55,8 +79,8 @@ func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	cookie, ok := CheckForValidCookie(r, handler)
 	if ok {
-		UpdateCookie(w, handler, cookie.ID)
-		helpers.ResponseWithPayload(w, 200, []byte("User already logged in, refreshing token."))
+		UpdateCookie(w, handler, cookie.ID, cookie.Subject)
+		helpers.ResponseWithPayload(w, 200, []byte(cookie.ID))
 		return
 	}
 	reqBody, _ := io.ReadAll(r.Body)
@@ -76,11 +100,11 @@ func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, 401)
 		return
 	}
-	newToken, err := handler.TokenManager.GenerateToken(user.ID.String(), time.Minute*60)
+	newToken, err := handler.TokenManager.GenerateToken(user.ID.String(), user.Username, time.Minute*60)
 	if err != nil {
 		return
 	}
 	log.Println("Log in successful userId: ", user.ID)
 	SetCookie(w, newToken)
-	helpers.ResponseWithPayload(w, 200, []byte(newToken.String()))
+	helpers.ResponseWithPayload(w, 200, []byte(user.ID.String()))
 }

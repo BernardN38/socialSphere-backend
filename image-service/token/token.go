@@ -3,11 +3,13 @@ package token
 import (
 	"context"
 	"encoding/json"
-	"github.com/bernardn38/socialsphere/image-service/helpers"
-	"github.com/cristalhq/jwt/v4"
 	"log"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/bernardn38/socialsphere/image-service/helpers"
+	"github.com/cristalhq/jwt/v4"
 )
 
 type Manager struct {
@@ -24,11 +26,19 @@ func NewManager(secret []byte, SigningMethod jwt.Algorithm) *Manager {
 }
 func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// log.Printf("%+v", r)
 		auth := r.Header.Get("Cookie")
-
-		tokenString := strings.TrimPrefix(auth, "jwtToken=")
-		token, ok := tm.VerifyToken(tokenString)
-		if !ok {
+		fields := strings.Split(auth, ";")
+		var tokenString string
+		for _, cookie := range fields {
+			cookieFields := strings.Split(cookie, "=")
+			if strings.Contains(cookieFields[0], "jwtToken") && len(cookieFields) > 1 {
+				tokenString = cookieFields[1]
+			}
+		}
+		token, err := tm.VerifyToken(tokenString)
+		if err != nil {
+			log.Println(err)
 			helpers.ResponseNoPayload(w, 401)
 			return
 		}
@@ -39,12 +49,12 @@ func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 	})
 }
 
-func (tm *Manager) VerifyToken(token string) (*jwt.RegisteredClaims, bool) {
+func (tm *Manager) VerifyToken(token string) (*jwt.RegisteredClaims, error) {
 	// create a Verifier (HMAC in this example)
 	verifier, err := jwt.NewVerifierHS(tm.SigningMethod, tm.Secret)
 	if err != nil {
 
-		return nil, false
+		return nil, err
 	}
 
 	// parse and verify a token
@@ -53,14 +63,14 @@ func (tm *Manager) VerifyToken(token string) (*jwt.RegisteredClaims, bool) {
 	if err != nil {
 		log.Println(err)
 
-		return nil, false
+		return nil, err
 	}
 
 	// or just verify it's signature
 	err = verifier.Verify(newToken)
 	if err != nil {
 		log.Println(err)
-		return nil, false
+		return nil, err
 	}
 
 	// get Registered claims
@@ -68,15 +78,20 @@ func (tm *Manager) VerifyToken(token string) (*jwt.RegisteredClaims, bool) {
 	errClaims := json.Unmarshal(newToken.Claims(), &newClaims)
 	if errClaims != nil {
 		log.Println(errClaims)
-		return nil, false
+		return nil, err
 	}
 
 	// or parse only claims
 	errParseClaims := jwt.ParseClaims(tokenBytes, verifier, &newClaims)
 	if errParseClaims != nil {
 		log.Println(errParseClaims)
-		return nil, false
+		return nil, err
 	}
 
-	return &newClaims, true
+	if newClaims.ExpiresAt.Before(time.Now()) {
+		log.Println("Error: token expired")
+		return nil, err
+	}
+
+	return &newClaims, nil
 }
