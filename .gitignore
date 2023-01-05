@@ -1,4 +1,4 @@
 db-data
 postgres-data
 .idea
-socialSphere.code-workspace
+./image-proccessing-service-worker/venv/

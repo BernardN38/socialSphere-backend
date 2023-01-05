@@ -98,7 +98,7 @@ func SetCookie(w http.ResponseWriter, token *jwt.Token) {
 		Unparsed:   nil,
 	}
 	http.SetCookie(w, cookie)
-	log.Println("cookie set", cookie)
+	log.Println("cookie set:", cookie)
 }
 
 func UpdateCookie(w http.ResponseWriter, handler *Handler, userId string, username string) {
