@@ -95,7 +95,7 @@ func connectToRabbitMQ(rabbitUrl string) *amqp.Connection {
 	for {
 		conn, err := amqp.Dial(rabbitUrl)
 		if err != nil {
-			log.Println("Connection not ready backing off for ", backOff)
+			log.Println("Connection not ready backing off for:", backOff)
 			time.Sleep(backOff)
 			backOff = backOff + (time.Second * 5)
 		} else {
