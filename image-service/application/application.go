@@ -100,20 +100,8 @@ func ListenForMessages(config *Config) {
 
 	for d := range messages {
 		switch messageType := d.RoutingKey; messageType {
-		case "upload":
-			imageId, ok  := d.Headers["imageId"].(string)
-			if !ok {
-				log.Println("image id invalid")
-				return
-			}
-			err := helpers.UploadToS3(d.Body, imageId)
-			if err != nil {
-				log.Println(err)
-				d.Ack(false)
-				return
-			}
 		case "delete":
-			imageId, ok  := d.Headers["imageId"].(string)
+			imageId, ok := d.Headers["imageId"].(string)
 			if !ok {
 				log.Println("image id invalid")
 				return

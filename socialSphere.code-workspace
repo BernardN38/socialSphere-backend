@@ -29,6 +29,9 @@
 		},
 		{
 			"path": "image-proccessing-service-worker"
+		},
+		{
+			"path": "db-data"
 		}
 	],
 	"settings": {

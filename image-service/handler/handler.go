@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"io"
 	"log"
 	"net/http"
@@ -48,17 +50,20 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get header for filename, size and headers
-	file, header, err := r.FormFile("myFile")
+	file, header, err := r.FormFile("image")
 	if err != nil {
 		fmt.Println("Error Retrieving the File")
 		fmt.Println(err)
 		return
 	}
 
+	img, format, err := image.Decode(file)
+	log.Println(format)
+	opts := jpeg.Options{Quality: 60}
+
 	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, file); err != nil {
-		log.Println(err)
-	}
+
+	jpeg.Encode(buf, img, &opts)
 
 	err = helpers.UploadToS3(buf.Bytes(), uuid.New().String())
 	if err != nil {

@@ -12,5 +12,5 @@ def get_image_from_s3(image_id):
 
 def upload_image_to_s3(image_obj, image_id):
     bucket.upload_fileobj(image_obj, image_id)
-
+    
     return 

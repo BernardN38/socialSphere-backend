@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
-	"github.com/bernardn38/socialsphere/messaging-service/helpers"
 	"github.com/bernardn38/socialsphere/messaging-service/token"
 	"github.com/go-chi/chi"
 	"github.com/go-redis/redis/v8"
@@ -19,21 +19,19 @@ type Handler struct {
 	TokenManager *token.Manager
 	Upgrader     websocket.Upgrader
 	Conns        map[string]*websocket.Conn
+	UserMutex    sync.RWMutex
 	Rdb          *redis.Client
 }
 
 var ctx = context.Background()
 
-func (handler *Handler) CheckOnline(w http.ResponseWriter, r *http.Request) {
-	log.Println(handler.Conns)
+func (h *Handler) CheckOnline(w http.ResponseWriter, r *http.Request) {
 	userId := chi.URLParam(r, "userId")
-	if handler.Conns[userId] == nil {
-		helpers.ResponseNoPayload(w, 404)
-		return
-	}
-	helpers.ResponseNoPayload(w, 200)
+	h.UserMutex.RLock()
+	_, connected := h.Conns[userId]
+	h.UserMutex.RUnlock()
+	w.Write([]byte(fmt.Sprintf("%v", connected)))
 }
-
 func (handler *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	userId := r.Context().Value("userId").(string)

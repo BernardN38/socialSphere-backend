@@ -12,6 +12,7 @@ services:
     command: [ "run", "-d", "-c", "/etc/krakend/krakend.json" ]
 
   rabbitmq:
+    hostname: 'dev-rabbitmq'
     image: 'rabbitmq:3-management'
     ports:
       - "5672:5672"
@@ -22,7 +23,7 @@ services:
     volumes:
       - ../rabbit-init/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ../rabbit-init/definitions.json:/etc/rabbitmq/definitions.json:ro
-      - ../db-data/rabbitmq/:/var/lib/rabbitmq/
+      - ../db-data/rabbitmq:/var/lib/rabbitmq
 
   postgres:
     image: postgres:14-alpine
