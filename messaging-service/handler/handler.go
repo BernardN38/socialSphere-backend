@@ -43,7 +43,15 @@ func (handler *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+	handler.UserMutex.Lock()
 	handler.Conns[userId] = ws
+	handler.UserMutex.Unlock()
+
+	defer func() {
+		handler.UserMutex.Lock()
+		delete(handler.Conns, userId)
+		handler.UserMutex.Unlock()
+	}()
 	pubsub := handler.Rdb.Subscribe(ctx, userId)
 	defer pubsub.Close()
 	for {
