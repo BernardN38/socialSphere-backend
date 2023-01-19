@@ -9,7 +9,7 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID
+	ID        int32
 	Username  string
 	Email     string
 	Password  string
@@ -18,6 +18,6 @@ type User struct {
 }
 
 type UserProfileImage struct {
-	UserID  uuid.UUID
+	UserID  int32
 	ImageID uuid.UUID
 }

@@ -78,7 +78,6 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 	router.Use(tm.VerifyJwtToken)
 	router.Post("/image", handler.UploadImage)
 	router.Get("/image/{imageId}", handler.GetImage)
-	router.Get("/images", handler.GetUserImages)
 	return router
 }
 func ListenForMessages(config *Config) {

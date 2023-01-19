@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-export PGPASSWORD=$POSTGRES_PASSWORD;
+export PGPASSWORD=$POSTGRES_PASSWORD
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
   CREATE USER $APP_DB_USER WITH PASSWORD '$APP_DB_PASS';
   CREATE DATABASE $AUTH_DB_NAME;
@@ -13,7 +13,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   BEGIN;
     CREATE TABLE users
     (
-        id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        id         serial PRIMARY KEY,
         username   text NOT NULL UNIQUE,
         email      text NOT NULL UNIQUE,
         password   text NOT NULL,
@@ -25,7 +25,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   BEGIN;
     CREATE TABLE users
     (
-        id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        id         serial PRIMARY KEY,
         username   text NOT NULL UNIQUE,
         email      text NOT NULL UNIQUE,
         password   text NOT NULL,
@@ -33,7 +33,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         last_name  text NOT NULL
     );
     CREATE TABLE user_profile_images(
-                           user_id uuid UNIQUE NOT NULL,
+                           user_id int UNIQUE NOT NULL,
                            image_id uuid NOT NULL,
                            PRIMARY KEY (user_id, image_id)
 );
@@ -41,9 +41,9 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   \connect $POST_DB_NAME $APP_DB_USER
     BEGIN;
      CREATE TABLE post(
-         id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+         id         serial PRIMARY KEY,
          body   text NOT NULL,
-         user_id      uuid NOT NULL,
+         user_id      int NOT NULL,
          author_name text NOT NULL,
          image_id uuid,
          created_at   timestamp  NOT NULL DEFAULT NOW()
@@ -51,24 +51,24 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
      COMMIT;
      BEGIN;
     CREATE TABLE comment(
-      id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      id         serial PRIMARY KEY,
       body   text NOT NULL,
-      user_id      uuid NOT NULL,
+      user_id      int NOT NULL,
      author_name text NOT NULL,
      created_at   timestamp NOT NULL DEFAULT NOW()
    );
     COMMIT;
       BEGIN;
     CREATE TABLE post_comment(
-    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-     post_id      uuid NOT NULL REFERENCES post ON DELETE CASCADE, 
-    comment_id uuid NOT NULL REFERENCES comment ON DELETE CASCADE
+    id         serial PRIMARY KEY,
+     post_id      int NOT NULL REFERENCES post ON DELETE CASCADE, 
+    comment_id int NOT NULL REFERENCES comment ON DELETE CASCADE
    );
     COMMIT;
    BEGIN;
    CREATE TABLE post_like(
-                              post_id uuid NOT NULL,
-                              user_id uuid NOT NULL,
+                              post_id int NOT NULL,
+                              user_id int NOT NULL,
                               PRIMARY KEY (post_id,user_id),
                               CONSTRAINT fk_post
                                   FOREIGN KEY(post_id)
@@ -76,11 +76,14 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
                                       ON DELETE CASCADE
    );
     COMMIT;
+
+
+
   \connect $IMAGE_DB_NAME $APP_DB_USER
     BEGIN;
     CREATE TABLE user_images(
-                         id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-                        user_id uuid NOT NULL,
+                         id         serial PRIMARY KEY,
+                        user_id int NOT NULL,
                         image_id uuid NOT NULL,
                         created_at timestamp NOT NULL DEFAULT NOW()
     );

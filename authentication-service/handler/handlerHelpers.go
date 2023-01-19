@@ -10,11 +10,10 @@ import (
 
 	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
 	"github.com/cristalhq/jwt/v4"
-	"github.com/google/uuid"
 	"gopkg.in/go-playground/validator.v9"
 )
 
-func CreateUser(usersDb *users.Queries, form *RegisterForm) (uuid.UUID, error) {
+func CreateUser(usersDb *users.Queries, form *RegisterForm) (int32, error) {
 	user := users.CreateUserParams{
 		Username:  form.Username,
 		Password:  form.Password,
@@ -25,7 +24,7 @@ func CreateUser(usersDb *users.Queries, form *RegisterForm) (uuid.UUID, error) {
 	createdUser, err := usersDb.CreateUser(context.Background(), user)
 	if err != nil {
 		log.Println(err)
-		return uuid.UUID{}, err
+		return 0, err
 	}
 	return createdUser.ID, nil
 }
@@ -87,7 +86,7 @@ func SetCookie(w http.ResponseWriter, token *jwt.Token) {
 		Name:       "jwtToken",
 		Value:      token.String(),
 		Path:       "/",
-		Domain:     "localhost",
+		Domain:     "192.168.0.17",
 		Expires:    time.Now().Add(time.Minute * 60),
 		RawExpires: "",
 		MaxAge:     3600,

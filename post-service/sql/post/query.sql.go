@@ -17,8 +17,8 @@ select exists(select 1 from post_like where post_id = $1 and user_id = $2) as e
 `
 
 type CheckLikeParams struct {
-	PostID uuid.UUID
-	UserID uuid.UUID
+	PostID int32
+	UserID int32
 }
 
 func (q *Queries) CheckLike(ctx context.Context, arg CheckLikeParams) (bool, error) {
@@ -35,13 +35,13 @@ VALUES ($1,$2,$3) RETURNING id, user_id, author_name
 
 type CreateCommentParams struct {
 	Body       string
-	UserID     uuid.UUID
+	UserID     int32
 	AuthorName string
 }
 
 type CreateCommentRow struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
+	ID         int32
+	UserID     int32
 	AuthorName string
 }
 
@@ -59,7 +59,7 @@ VALUES ($1, $2, $3, $4) RETURNING id, body, user_id, author_name, image_id, crea
 
 type CreatePostParams struct {
 	Body       string
-	UserID     uuid.UUID
+	UserID     int32
 	AuthorName string
 	ImageID    uuid.NullUUID
 }
@@ -89,13 +89,13 @@ VALUES ($1,$2) RETURNING id
 `
 
 type CreatePostCommentParams struct {
-	PostID    uuid.UUID
-	CommentID uuid.UUID
+	PostID    int32
+	CommentID int32
 }
 
-func (q *Queries) CreatePostComment(ctx context.Context, arg CreatePostCommentParams) (uuid.UUID, error) {
+func (q *Queries) CreatePostComment(ctx context.Context, arg CreatePostCommentParams) (int32, error) {
 	row := q.db.QueryRowContext(ctx, createPostComment, arg.PostID, arg.CommentID)
-	var id uuid.UUID
+	var id int32
 	err := row.Scan(&id)
 	return id, err
 }
@@ -109,8 +109,8 @@ RETURNING post_id, user_id
 `
 
 type CreatePostLikeParams struct {
-	PostID uuid.UUID
-	UserID uuid.UUID
+	PostID int32
+	UserID int32
 }
 
 func (q *Queries) CreatePostLike(ctx context.Context, arg CreatePostLikeParams) (PostLike, error) {
@@ -127,8 +127,8 @@ WHERE id = $1 AND user_id = $2 RETURNING image_id
 `
 
 type DeletePostByIdParams struct {
-	ID     uuid.UUID
-	UserID uuid.UUID
+	ID     int32
+	UserID int32
 }
 
 func (q *Queries) DeletePostById(ctx context.Context, arg DeletePostByIdParams) (uuid.NullUUID, error) {
@@ -144,7 +144,7 @@ FROM post
 WHERE user_id = $1
 `
 
-func (q *Queries) DeletePostByUserId(ctx context.Context, userID uuid.UUID) error {
+func (q *Queries) DeletePostByUserId(ctx context.Context, userID int32) error {
 	_, err := q.db.ExecContext(ctx, deletePostByUserId, userID)
 	return err
 }
@@ -156,8 +156,8 @@ WHERE post_id = $1 and user_id = $2
 `
 
 type DeletePostLikeParams struct {
-	PostID uuid.UUID
-	UserID uuid.UUID
+	PostID int32
+	UserID int32
 }
 
 func (q *Queries) DeletePostLike(ctx context.Context, arg DeletePostLikeParams) error {
@@ -171,12 +171,12 @@ SELECT body, comment_id, user_id, author_name FROM post_comment p join comment c
 
 type GetAllPostCommentsByPostIdRow struct {
 	Body       string
-	CommentID  uuid.UUID
-	UserID     uuid.UUID
+	CommentID  int32
+	UserID     int32
 	AuthorName string
 }
 
-func (q *Queries) GetAllPostCommentsByPostId(ctx context.Context, postID uuid.UUID) ([]GetAllPostCommentsByPostIdRow, error) {
+func (q *Queries) GetAllPostCommentsByPostId(ctx context.Context, postID int32) ([]GetAllPostCommentsByPostIdRow, error) {
 	rows, err := q.db.QueryContext(ctx, getAllPostCommentsByPostId, postID)
 	if err != nil {
 		return nil, err
@@ -244,7 +244,7 @@ SELECT id, body, user_id, author_name, created_at FROM comment
 WHERE id = $1
 `
 
-func (q *Queries) GetCommentById(ctx context.Context, id uuid.UUID) (Comment, error) {
+func (q *Queries) GetCommentById(ctx context.Context, id int32) (Comment, error) {
 	row := q.db.QueryRowContext(ctx, getCommentById, id)
 	var i Comment
 	err := row.Scan(
@@ -263,7 +263,7 @@ FROM post
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetPostById(ctx context.Context, id uuid.UUID) (Post, error) {
+func (q *Queries) GetPostById(ctx context.Context, id int32) (Post, error) {
 	row := q.db.QueryRowContext(ctx, getPostById, id)
 	var i Post
 	err := row.Scan(
@@ -286,13 +286,13 @@ WHERE id = $1 GROUP BY p.id LIMIT 1
 `
 
 type GetPostByIdWithLikesRow struct {
-	ID     uuid.UUID
+	ID     int32
 	Body   string
-	UserID uuid.UUID
+	UserID int32
 	Count  int64
 }
 
-func (q *Queries) GetPostByIdWithLikes(ctx context.Context, id uuid.UUID) (GetPostByIdWithLikesRow, error) {
+func (q *Queries) GetPostByIdWithLikes(ctx context.Context, id int32) (GetPostByIdWithLikesRow, error) {
 	row := q.db.QueryRowContext(ctx, getPostByIdWithLikes, id)
 	var i GetPostByIdWithLikesRow
 	err := row.Scan(
@@ -317,16 +317,16 @@ OFFSET $3
 `
 
 type GetPostByUserIdPagedParams struct {
-	UserID uuid.UUID
+	UserID int32
 	Limit  int32
 	Offset int32
 }
 
 type GetPostByUserIdPagedRow struct {
-	ID         uuid.UUID
+	ID         int32
 	AuthorName string
 	Body       string
-	UserID     uuid.UUID
+	UserID     int32
 	CreatedAt  time.Time
 	ImageID    uuid.NullUUID
 	Likecount  int64
@@ -369,7 +369,7 @@ FROM post_like
 WHERE post_id = $1
 `
 
-func (q *Queries) GetPostLike(ctx context.Context, postID uuid.UUID) (PostLike, error) {
+func (q *Queries) GetPostLike(ctx context.Context, postID int32) (PostLike, error) {
 	row := q.db.QueryRowContext(ctx, getPostLike, postID)
 	var i PostLike
 	err := row.Scan(&i.PostID, &i.UserID)
@@ -382,7 +382,7 @@ FROM post_like
 WHERE post_id = $1
 `
 
-func (q *Queries) GetPostLikeCountById(ctx context.Context, postID uuid.UUID) (int64, error) {
+func (q *Queries) GetPostLikeCountById(ctx context.Context, postID int32) (int64, error) {
 	row := q.db.QueryRowContext(ctx, getPostLikeCountById, postID)
 	var count int64
 	err := row.Scan(&count)
@@ -395,7 +395,7 @@ FROM post
 WHERE user_id = $1
 `
 
-func (q *Queries) GetPostsByUserId(ctx context.Context, userID uuid.UUID) ([]Post, error) {
+func (q *Queries) GetPostsByUserId(ctx context.Context, userID int32) ([]Post, error) {
 	rows, err := q.db.QueryContext(ctx, getPostsByUserId, userID)
 	if err != nil {
 		return nil, err
@@ -432,7 +432,7 @@ WHERE id = $1 RETURNING id, body, user_id, author_name, image_id, created_at
 `
 
 type UpdatePostParams struct {
-	ID   uuid.UUID
+	ID   int32
 	Body string
 }
 

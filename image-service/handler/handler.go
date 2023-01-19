@@ -2,14 +2,12 @@ package handler
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/bernardn38/socialsphere/image-service/helpers"
@@ -25,28 +23,14 @@ type Handler struct {
 	AwsSession   *session.Session
 }
 
-func (handler *Handler) GetUserImages(w http.ResponseWriter, r *http.Request) {
-	userId := r.Context().Value("userId")
-	parsedId, err := uuid.Parse(userId.(string))
-	if err != nil {
-		helpers.ResponseWithJson(w, 400, helpers.JsonResponse{Msg: "invalid user id"})
-		return
-	}
-	ids, err := handler.UserImageDB.GetImagesByUserId(context.Background(), parsedId)
-	if err != nil {
-		helpers.ResponseWithJson(w, 500, helpers.JsonResponse{Msg: "error retrieving imageIds"})
-		return
-	}
-	helpers.ResponseWithJson(w, 200, helpers.JsonResponse{Data: ids})
-}
-
+// currently unused only support uploading jpeg
 func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	// Maximum upload of 10 MB files
-	start := time.Now()
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseWithPayload(w, 413, []byte("image too large"))
+		return
 	}
 
 	// Get header for filename, size and headers
@@ -57,12 +41,15 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	img, format, err := image.Decode(file)
-	log.Println(format)
+	// compress image
+	img, _, err := image.Decode(file)
 	opts := jpeg.Options{Quality: 60}
-
+	if err != nil {
+		log.Println(err)
+		helpers.ResponseNoPayload(w, 500)
+		return
+	}
 	buf := bytes.NewBuffer(nil)
-
 	jpeg.Encode(buf, img, &opts)
 
 	err = helpers.UploadToS3(buf.Bytes(), uuid.New().String())
@@ -76,19 +63,25 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("MIME Header: %+v\n", header.Header)
 
 	fmt.Fprintf(w, "Successfully Uploaded File\n")
-	end := time.Now()
-	log.Println(end.UnixMilli()-start.UnixMilli(), " ms")
 }
 
 func (handler *Handler) GetImage(w http.ResponseWriter, r *http.Request) {
+	// get image from s3 bucket
 	imageId := chi.URLParam(r, "imageId")
 	file, err := helpers.GetImageFromS3(imageId)
+	if err != nil {
+		log.Println(err)
+		helpers.ResponseNoPayload(w, 500)
+		return
+	}
 	defer file.Close()
 	if err != nil {
 		helpers.ResponseNoPayload(w, 404)
 		return
 	}
-	w.Header().Set("Cache-Control", "max-age=2592000") //
+
+	//send image to client; cache image in client
+	w.Header().Set("Cache-Control", "max-age=86400")
 	w.Header().Set("Content-Type", "application/octet-stream")
 	_, err = io.Copy(w, file)
 	if err != nil {

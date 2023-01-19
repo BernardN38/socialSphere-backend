@@ -11,7 +11,7 @@ import (
 )
 
 type UserImage struct {
-	ID        uuid.UUID
+	ID        int32
 	UserID    uuid.UUID
 	ImageID   uuid.UUID
 	CreatedAt time.Time

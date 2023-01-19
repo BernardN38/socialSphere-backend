@@ -40,7 +40,6 @@ func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 			helpers.ResponseNoPayload(w, 401)
 			return
 		}
-
 		ctx := context.WithValue(r.Context(), "userId", token.ID)
 		ctx = context.WithValue(ctx, "username", token.Subject)
 		next.ServeHTTP(w, r.WithContext(ctx))

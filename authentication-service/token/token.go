@@ -18,10 +18,6 @@ type Manager struct {
 	Verifier      jwt.Verifier
 }
 
-type tokenManger interface {
-	func() jwt.Token
-}
-
 func NewManager(secret []byte, SigningMethod jwt.Algorithm) *Manager {
 	return &Manager{
 		Secret:        secret,
@@ -29,6 +25,7 @@ func NewManager(secret []byte, SigningMethod jwt.Algorithm) *Manager {
 	}
 }
 func (tm *Manager) GenerateToken(userId string, userName string, TTL time.Duration) (*jwt.Token, error) {
+
 	signer, err := jwt.NewSignerHS(tm.SigningMethod, tm.Secret)
 	if err != nil {
 		log.Println(err)

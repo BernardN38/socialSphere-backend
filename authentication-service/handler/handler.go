@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -77,12 +78,6 @@ func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
-	cookie, ok := CheckForValidCookie(r, handler)
-	if ok {
-		UpdateCookie(w, handler, cookie.ID, cookie.Subject)
-		helpers.ResponseWithPayload(w, 200, []byte(cookie.ID))
-		return
-	}
 	reqBody, _ := io.ReadAll(r.Body)
 	form, err := ValidateLoginForm(reqBody)
 	if err != nil {
@@ -100,11 +95,12 @@ func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, 401)
 		return
 	}
-	newToken, err := handler.TokenManager.GenerateToken(user.ID.String(), user.Username, time.Minute*60)
+
+	newToken, err := handler.TokenManager.GenerateToken(fmt.Sprintf("%v", user.ID), user.Username, time.Minute*60)
 	if err != nil {
 		return
 	}
 	log.Println("Log in successful userId: ", user.ID)
 	SetCookie(w, newToken)
-	helpers.ResponseWithPayload(w, 200, []byte(user.ID.String()))
+	helpers.ResponseWithPayload(w, 200, []byte(fmt.Sprintf("%v", user.ID)))
 }

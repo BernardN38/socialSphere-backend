@@ -42,7 +42,6 @@ func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), "userId", token.ID)
-
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

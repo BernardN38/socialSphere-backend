@@ -48,17 +48,20 @@ def compress_and_upload_image(image, image_id, extension):
 
 
 def main():
-    print(' [*] Connecting to server ...')
-    sleepTime = 20
-    print(' [*] Sleeping for ', sleepTime, ' seconds.')
-    time.sleep(sleepTime)
+    while True:
+        try:
+            connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+            channel = connection.channel()
+            break
+        except pika.exceptions.AMQPConnectionError:
+            print('connection not ready waiting 3 seconds')
+            time.sleep(3)
 
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+    print("Connection to RabbitMQ ready")
     channel = connection.channel()
-
     channel.basic_qos(prefetch_count=2)
     channel.basic_consume(queue='image-proccessing-worker', on_message_callback=callback)
-    print(' [*] Waiting for messages. To exit press CTRL+C')
+    print(' [*] Waiting for messages')
     channel.start_consuming()
     
 if __name__ == '__main__':

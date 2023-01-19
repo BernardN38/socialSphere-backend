@@ -11,29 +11,29 @@ import (
 )
 
 type Comment struct {
-	ID         uuid.UUID
+	ID         int32
 	Body       string
-	UserID     uuid.UUID
+	UserID     int32
 	AuthorName string
 	CreatedAt  time.Time
 }
 
 type Post struct {
-	ID         uuid.UUID
+	ID         int32
 	Body       string
-	UserID     uuid.UUID
+	UserID     int32
 	AuthorName string
 	ImageID    uuid.NullUUID
 	CreatedAt  time.Time
 }
 
 type PostComment struct {
-	ID        uuid.UUID
-	PostID    uuid.UUID
-	CommentID uuid.UUID
+	ID        int32
+	PostID    int32
+	CommentID int32
 }
 
 type PostLike struct {
-	PostID uuid.UUID
-	UserID uuid.UUID
+	PostID int32
+	UserID int32
 }

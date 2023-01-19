@@ -1,6 +1,6 @@
 CREATE TABLE users
 (
-    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id        serial PRIMARY KEY,
     username   text NOT NULL UNIQUE,
     email      text NOT NULL UNIQUE,
     password   text NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE users
 );
 
 CREATE TABLE user_profile_images(
-                           user_id uuid NOT NULL UNIQUE,
+                           user_id int NOT NULL UNIQUE,
                            image_id uuid NOT NULL,
                            PRIMARY KEY (user_id, image_id)
 );

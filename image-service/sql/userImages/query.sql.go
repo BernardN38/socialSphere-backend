@@ -39,7 +39,7 @@ FROM user_images
 WHERE id = $1
 `
 
-func (q *Queries) DeleteImageById(ctx context.Context, id uuid.UUID) error {
+func (q *Queries) DeleteImageById(ctx context.Context, id int32) error {
 	_, err := q.db.ExecContext(ctx, deleteImageById, id)
 	return err
 }
@@ -94,7 +94,7 @@ FROM user_images
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetImageById(ctx context.Context, id uuid.UUID) (UserImage, error) {
+func (q *Queries) GetImageById(ctx context.Context, id int32) (UserImage, error) {
 	row := q.db.QueryRowContext(ctx, getImageById, id)
 	var i UserImage
 	err := row.Scan(
@@ -188,7 +188,7 @@ WHERE id = $1 RETURNING id, user_id, image_id, created_at
 `
 
 type UpdateImageParams struct {
-	ID      uuid.UUID
+	ID      int32
 	ImageID uuid.UUID
 }
 

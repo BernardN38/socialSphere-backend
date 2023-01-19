@@ -17,7 +17,7 @@ VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, email, password, first_n
 `
 
 type CreateUserParams struct {
-	ID        uuid.UUID
+	ID        int32
 	Username  string
 	Password  string
 	Email     string
@@ -54,7 +54,7 @@ SET user_id = $1, image_id = $2
 `
 
 type CreateUserProfileImageParams struct {
-	UserID  uuid.UUID
+	UserID  int32
 	ImageID uuid.UUID
 }
 
@@ -69,7 +69,7 @@ FROM users
 WHERE id = $1
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
 	_, err := q.db.ExecContext(ctx, deleteUser, id)
 	return err
 }
@@ -80,7 +80,7 @@ FROM users
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetUserById(ctx context.Context, id uuid.UUID) (User, error) {
+func (q *Queries) GetUserById(ctx context.Context, id int32) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserById, id)
 	var i User
 	err := row.Scan(
@@ -132,7 +132,7 @@ SELECT image_id FROM user_profile_images
 WHERE user_id = $1
 `
 
-func (q *Queries) GetUserProfileImage(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
+func (q *Queries) GetUserProfileImage(ctx context.Context, userID int32) (uuid.UUID, error) {
 	row := q.db.QueryRowContext(ctx, getUserProfileImage, userID)
 	var image_id uuid.UUID
 	err := row.Scan(&image_id)
@@ -152,7 +152,7 @@ type GetUserViewRow struct {
 	LastName  string
 }
 
-func (q *Queries) GetUserView(ctx context.Context, id uuid.UUID) (GetUserViewRow, error) {
+func (q *Queries) GetUserView(ctx context.Context, id int32) (GetUserViewRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserView, id)
 	var i GetUserViewRow
 	err := row.Scan(
@@ -211,7 +211,7 @@ WHERE id = $1 RETURNING id, username, email, password, first_name, last_name
 `
 
 type UpdateUserParams struct {
-	ID        uuid.UUID
+	ID        int32
 	Username  string
 	Password  string
 	Email     string
