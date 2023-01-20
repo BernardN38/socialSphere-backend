@@ -159,34 +159,36 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	if len(body) < 1 {
 		helpers.ResponseNoPayload(w, 400)
 	}
-
-	file, h, err := r.FormFile("image")
-	if err != nil {
+	var imageId uuid.NullUUID
+	file, h, fileErr := r.FormFile("image")
+	if fileErr != nil {
 		fmt.Println("Error Retrieving the File")
-		fmt.Println(err)
-		return
+		fmt.Println(fileErr)
+		imageId.Valid = false
+	} else {
+		imageId.UUID = uuid.New()
+		imageId.Valid = true
 	}
-	defer file.Close()
 
-	imageId := uuid.New()
 	createdPost, err := handler.PostDb.CreatePost(context.Background(), post.CreatePostParams{
 		Body:       body[0],
 		UserID:     convertedUserId,
 		AuthorName: username,
-		ImageID: uuid.NullUUID{
-			UUID:  imageId,
-			Valid: true,
-		},
+		ImageID:    imageId,
 	})
 	if err != nil {
 		helpers.ResponseWithPayload(w, 500, []byte(err.Error()))
 		return
 	}
-	if file != nil {
-		err = SendImageToQueue(file, handler, "image-proccessing", imageId, h.Header.Get("Content-Type"))
+	if fileErr == nil {
+		err = SendImageToQueue(file, handler, "image-proccessing", imageId.UUID, h.Header.Get("Content-Type"))
 		if err != nil {
 			log.Println(err)
 		}
+	}
+	err = file.Close()
+	if err != nil {
+		log.Println(err)
 	}
 
 	helpers.ResponseWithPayload(w, http.StatusCreated, []byte(fmt.Sprintf(`{Post created with id: "%v"}`, createdPost.ID)))

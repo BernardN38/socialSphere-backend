@@ -20,6 +20,9 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+      resources:
+        limits:
+          memory: 5072M
     volumes:
       - ../rabbit-init/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ../rabbit-init/definitions.json:/etc/rabbitmq/definitions.json:ro

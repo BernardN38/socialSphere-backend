@@ -6,6 +6,8 @@ from PIL import Image
 import sys
 from s3_helpers import get_image_from_s3, upload_image_to_s3
 from mimetypes import guess_extension
+import threading
+
 
 def callback(ch, method, properties, body):
     # print(body, properties)
@@ -19,6 +21,9 @@ def callback(ch, method, properties, body):
         compress_and_upload_image(image, imageId, extension)
     except Exception as e:
         print("exception", e )
+    t = time.localtime()
+    current_time = time.strftime("%H:%M:%S", t)
+    print(current_time)
     print('image uploaded')
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -26,6 +31,7 @@ def compress_and_upload_image(image, image_id, extension):
     if extension == 'jpg':
         extension = 'jpeg'
     img_io = BytesIO()
+    print(image.width, image.height)
     if image.width > 1920 or image.height > 1080:
         new_width, new_height = 1920, 1080
         aspect_ratio = image.width / image.height
@@ -43,26 +49,23 @@ def compress_and_upload_image(image, image_id, extension):
                  optimize = True, 
                  quality = 60)
     img_io.seek(0)
-    upload_image_to_s3(img_io, image_id)
+    time.sleep(2)
+    # upload_image_to_s3(img_io, image_id)
     return
 
+def worker(queue_name):
+    connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+    channel = connection.channel()
+    # channel.queue_declare(queue=queue_name)
+    channel.basic_consume(queue_name, callback, auto_ack=False)
+    channel.start_consuming()
 
 def main():
-    while True:
-        try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
-            channel = connection.channel()
-            break
-        except pika.exceptions.AMQPConnectionError:
-            print('connection not ready waiting 3 seconds')
-            time.sleep(3)
-
-    print("Connection to RabbitMQ ready")
-    channel = connection.channel()
-    channel.basic_qos(prefetch_count=2)
-    channel.basic_consume(queue='image-proccessing-worker', on_message_callback=callback)
-    print(' [*] Waiting for messages')
-    channel.start_consuming()
+    time.sleep(10)
+    for i in range(10):
+        t = threading.Thread(target=worker, args=("image-proccessing-worker",))
+        t.start()
+    t.join()
     
 if __name__ == '__main__':
     try:

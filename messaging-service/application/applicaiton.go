@@ -71,6 +71,6 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 	}))
 	router.Use(tm.VerifyJwtToken)
 	router.Get("/messaging", handler.SendMessage)
-	router.Get("/check/{userId}", handler.CheckOnline)
+	router.Get("/users/{userId}/checkOnline", handler.CheckOnline)
 	return router
 }

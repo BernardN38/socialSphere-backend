@@ -2,12 +2,14 @@ package imageServiceBroker
 
 import (
 	"context"
+	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Emitter struct {
 	connection *amqp.Connection
+	channel    *amqp.Channel
 }
 
 func (e *Emitter) setup() error {
@@ -15,6 +17,7 @@ func (e *Emitter) setup() error {
 	if err != nil {
 		return err
 	}
+	e.channel = channel
 	defer channel.Close()
 	return nil
 }
@@ -30,6 +33,10 @@ func (e *Emitter) Push(event []byte, queue string, routingKey string, imageId st
 	if err != nil {
 		return err
 	}
+	err = channel.Close()
+	if err != nil {
+		log.Println(err)
+	}
 	return nil
 }
 func (e *Emitter) PushDelete(key string) error {
@@ -37,6 +44,7 @@ func (e *Emitter) PushDelete(key string) error {
 	if err != nil {
 		return err
 	}
+	defer channel.Close()
 	err = channel.PublishWithContext(context.Background(), "image-service", "delete", false, false, amqp.Publishing{
 		DeliveryMode: amqp.Persistent, ContentType: "string", Body: []byte{}, Headers: map[string]interface{}{"imageId": key},
 	})

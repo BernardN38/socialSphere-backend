@@ -91,6 +91,7 @@
     },
      {
       "endpoint": "/posts",
+      "timeout": "5s",
       "output_encoding": "no-op",
       "method": "POST",
       "input_headers": [

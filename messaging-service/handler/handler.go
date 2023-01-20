@@ -27,6 +27,7 @@ var ctx = context.Background()
 
 func (h *Handler) CheckOnline(w http.ResponseWriter, r *http.Request) {
 	userId := chi.URLParam(r, "userId")
+	log.Println(h.Conns, userId)
 	h.UserMutex.RLock()
 	_, connected := h.Conns[userId]
 	h.UserMutex.RUnlock()
