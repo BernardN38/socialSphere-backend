@@ -7,6 +7,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   CREATE DATABASE $POST_DB_NAME;
   CREATE DATABASE $IMAGE_DB_NAME;
   CREATE DATABASE $IDENTITY_DB_NAME;
+  CREATE DATABASE $FRIEND_DB_NAME;
   GRANT ALL PRIVILEGES ON DATABASE $AUTH_DB_NAME TO $APP_DB_USER;
   GRANT ALL PRIVILEGES ON DATABASE $POST_DB_NAME TO $APP_DB_USER;
   \connect $AUTH_DB_NAME $APP_DB_USER
@@ -77,7 +78,26 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
    );
     COMMIT;
 
-
+  \connect $FRIEND_DB_NAME $APP_DB_USER
+  BEGIN;
+    CREATE TABLE users
+(
+    id         serial PRIMARY KEY,
+    user_id int NOT NULL UNIQUE,
+    username   text NOT NULL UNIQUE,
+    email      text NOT NULL UNIQUE,
+    first_name text NOT NULL,
+    last_name  text NOT NULL
+);
+  COMMIT;
+  BEGIN;
+CREATE TABLE friendships
+(
+    id         serial PRIMARY KEY,
+    friend_a int NOT NULL REFERENCES users(id),
+    friend_b int NOT NULL REFERENCES users(id)
+);
+  COMMIT;
 
   \connect $IMAGE_DB_NAME $APP_DB_USER
     BEGIN;

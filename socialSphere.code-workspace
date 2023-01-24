@@ -32,6 +32,9 @@
 		},
 		{
 			"path": "db-data"
+		},
+		{
+			"path": "friend-service"
 		}
 	],
 	"settings": {

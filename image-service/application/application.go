@@ -63,13 +63,14 @@ func (app *App) runAppSetup(config Config) {
 	queries := userImages.New(db)
 	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
 	h := &handler.Handler{TokenManager: tokenManger, UserImageDB: queries, MinioClient: minioClient}
-	for i := 0; i < 10; i++ {
-		go ListenForMessages(&config, minioClient)
-	}
 	app.srv.router = SetupRouter(h, tokenManger)
 	app.pgDb = db
 	app.tokenManager = tokenManger
 	app.srv.handler = h
+	//start workers for recieving rabbitmq messages
+	for i := 0; i < 10; i++ {
+		go ListenForMessages(&config, minioClient)
+	}
 }
 
 func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {

@@ -332,6 +332,42 @@
           ]
         }
       ]
+    },{
+      "endpoint": "/friends/{userId}/friendships",
+      "output_encoding": "no-op",
+      "method": "POST",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/friends/{userId}/friendships",
+          "host": [
+            "http://friend-service:8080"
+          ]
+        }
+      ]
+    },{
+      "endpoint": "/friends",
+      "output_encoding": "no-op",
+      "method": "POST",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/friends",
+          "host": [
+            "http://friend-service:8080"
+          ]
+        }
+      ]
     }
   ],
   "extra_config": {

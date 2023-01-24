@@ -6,8 +6,8 @@ require (
 	github.com/cristalhq/jwt/v4 v4.0.2
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-chi/cors v1.2.1
-	github.com/google/uuid v1.3.0
 	github.com/lib/pq v1.10.7
+	github.com/rabbitmq/amqp091-go v1.6.0
 	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
 	gopkg.in/go-playground/validator.v9 v9.31.0
 )

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bernardn38/socialsphere/authentication-service/helpers"
+	"github.com/bernardn38/socialsphere/authentication-service/rabbitmqBroker"
 	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
 	"github.com/bernardn38/socialsphere/authentication-service/token"
 	"golang.org/x/crypto/bcrypt"
@@ -19,6 +20,7 @@ import (
 type Handler struct {
 	UsersDb      *users.Queries
 	TokenManager *token.Manager
+	Emitter      *rabbitmqBroker.Emitter
 }
 type RegisterForm struct {
 	Username  string `json:"username" validate:"required,min=2,max=100"`
@@ -36,19 +38,19 @@ func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := io.ReadAll(r.Body)
 	form, err := ValidateRegisterForm(reqBody)
 	if err != nil {
-		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(form.Password), 12)
 	if err != nil {
-		helpers.ResponseNoPayload(w, 500)
+		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
 
 	form.Password = string(encryptedPassword)
 	createdUserId, err := CreateUser(handler.UsersDb, form)
 	if err != nil {
-		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	body := make(map[string]interface{})
@@ -60,19 +62,14 @@ func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	reqData, err := json.Marshal(body)
 	if err != nil {
-		log.Panicln(err)
+		log.Println(err)
+		return
 	}
-	resp, err := http.Post("http://identity-service:8080/users", "application/json", bytes.NewBuffer(reqData))
+	_, err = http.Post("http://identity-service:8080/users", "application/json", bytes.NewBuffer(reqData))
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	log.Println(string(respBody))
 	log.Println("Register successful username: ", form.Username)
 	helpers.ResponseWithPayload(w, 200, []byte("Register Success"))
 }
@@ -82,17 +79,17 @@ func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	form, err := ValidateLoginForm(reqBody)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	user, err := handler.UsersDb.GetUserByUsername(context.Background(), form.Username)
 	if err != nil {
-		helpers.ResponseWithPayload(w, 404, []byte("user not found"))
+		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(form.Password))
 	if err != nil {
-		helpers.ResponseNoPayload(w, 401)
+		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
 

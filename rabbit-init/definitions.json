@@ -17,11 +17,37 @@
       "arguments": {
         "x-queue-type": "classic"
       }
+    },
+    {
+      "name": "friend-service",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "identity-service",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
     }
   ],
   "exchanges": [
     {
       "name": "image-service",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }, {
+      "name": "user-service",
       "vhost": "/",
       "type": "direct",
       "durable": true,
@@ -53,6 +79,22 @@
       "destination": "image-proccessing-worker",
       "destination_type": "queue",
       "routing_key": "image-proccessing",
+      "arguments": {}
+    },
+    {
+      "source": "user-service",
+      "vhost": "/",
+      "destination": "identity-service",
+      "destination_type": "queue",
+      "routing_key": "createUser",
+      "arguments": {}
+    },
+    {
+      "source": "user-service",
+      "vhost": "/",
+      "destination": "friend-service",
+      "destination_type": "queue",
+      "routing_key": "createUser",
       "arguments": {}
     }
   ],

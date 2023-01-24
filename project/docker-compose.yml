@@ -40,6 +40,7 @@ services:
       - POST_DB_NAME=post_service
       - IMAGE_DB_NAME=image_service
       - IDENTITY_DB_NAME=identity_service
+      - FRIEND_DB_NAME=friend_service
     logging:
       options:
         max-size: 10m
@@ -124,10 +125,6 @@ services:
     deploy:
       mode: replicated
       replicas: 1
-    environment:
-      AWS_DEFAULT_REGION: "us-east-1"
-      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
-      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
 
   identity-service:
     build:
@@ -151,4 +148,13 @@ services:
       mode: replicated
       replicas: 1
 
-
+  friend-service:
+    build: 
+      context: ../friend-service
+      dockerfile: ./friend-service.dockerfile
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+        DSN: "user=bernardn password=password host=postgres dbname=friend_service port=5432 sslmode=disable"

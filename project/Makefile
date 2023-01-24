@@ -3,6 +3,8 @@ POST_BINARY=postApp
 IMAGE_BINARY=imageApp
 IDENTITY_BINARY=identityApp
 MESSAGING_BINARY=messagingApp
+FRIEND_BINARY=friendApp
+
 ## up: starts all containers in the background without forcing build
 up:
 	@echo "Starting Docker images..."
@@ -10,7 +12,7 @@ up:
 	@echo "Docker images started!"
 
 ## up_build: stops docker-compose (if running), builds all projects and starts docker compose
-up_build: build_auth build_post build_image build_identity build_messaging build_image_proccessing_service_worker
+up_build: build_auth build_post build_image build_identity build_messaging build_image_proccessing_service_worker build_friend
 	@echo "Stopping docker images (if running...)"
 	docker-compose down
 	@echo "Building (when required) and starting docker images..."
@@ -51,6 +53,11 @@ build_identity:
 build_messaging:
 	@echo "Building identity-service binary..."
 	cd ../messaging-service && env GOOS=linux CGO_ENABLED=0 go build -o ${MESSAGING_BINARY} ./cmd/api
+	@echo "Done!"
+## build_friend: builds the pos binary as a linux executable
+build_friend:
+	@echo "Building friend-service binary..."
+	cd ../friend-service && env GOOS=linux CGO_ENABLED=0 go build -o ${FRIEND_BINARY} ./cmd/api
 	@echo "Done!"
 
 build_image_proccessing_service_worker:

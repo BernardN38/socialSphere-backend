@@ -76,7 +76,7 @@ func (handler *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Re
 	}
 	file, h, err := r.FormFile("image")
 	if err != nil {
-		fmt.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
