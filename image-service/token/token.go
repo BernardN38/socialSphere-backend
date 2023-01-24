@@ -3,6 +3,7 @@ package token
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -90,7 +91,7 @@ func (tm *Manager) VerifyToken(token string) (*jwt.RegisteredClaims, error) {
 
 	if newClaims.ExpiresAt.Before(time.Now()) {
 		log.Println("Error: token expired")
-		return nil, err
+		return nil, errors.New("token erpired")
 	}
 
 	return &newClaims, nil

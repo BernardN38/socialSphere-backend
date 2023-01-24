@@ -3,8 +3,6 @@ package handler
 import (
 	"bytes"
 	"fmt"
-	"image"
-	"image/jpeg"
 	"io"
 	"log"
 	"net/http"
@@ -29,7 +27,7 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseWithPayload(w, 413, []byte("image too large"))
+		http.Error(w, "File too Large", http.StatusRequestEntityTooLarge)
 		return
 	}
 
@@ -38,23 +36,18 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println("Error Retrieving the File")
 		fmt.Println(err)
-		return
-	}
-
-	// compress image
-	img, _, err := image.Decode(file)
-	opts := jpeg.Options{Quality: 60}
-	if err != nil {
-		log.Println(err)
-		helpers.ResponseNoPayload(w, 500)
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 	buf := bytes.NewBuffer(nil)
-	jpeg.Encode(buf, img, &opts)
-
+	if _, err := io.Copy(buf, file); err != nil {
+		log.Println(err)
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
 	err = helpers.UploadToS3(handler.MinioClient, buf.Bytes(), uuid.New().String())
 	if err != nil {
-		helpers.ResponseNoPayload(w, 500)
+		http.Error(w, "Error uploading to", http.StatusInternalServerError)
 		return
 	}
 	defer file.Close()
@@ -62,7 +55,7 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("File Size: %+v\n", header.Size)
 	fmt.Printf("MIME Header: %+v\n", header.Header)
 
-	fmt.Fprintf(w, "Successfully Uploaded File\n")
+	helpers.ResponseNoPayload(w, 201)
 }
 
 func (handler *Handler) GetImage(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +64,7 @@ func (handler *Handler) GetImage(w http.ResponseWriter, r *http.Request) {
 	object, err := helpers.GetImageFromS3(handler.MinioClient, imageId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 500)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -82,7 +75,7 @@ func (handler *Handler) GetImage(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(w, object)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 500)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 }

@@ -53,7 +53,7 @@ func (handler *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Username: userForm.Username, FirstName: userForm.Username, LastName: userForm.LastName, Email: userForm.Email})
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 500)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -64,14 +64,14 @@ func (handler *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Re
 	userId, err := helpers.GetUserIdFromRequest(r, true)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		http.Error(w, "", http.StatusBadGateway)
 		return
 	}
 	//parse image from form
 	err = r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 413)
+		http.Error(w, "File too large", http.StatusRequestEntityTooLarge)
 		return
 	}
 	file, h, err := r.FormFile("image")
@@ -87,7 +87,7 @@ func (handler *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Re
 		UserID:  userId,
 		ImageID: imageId,
 	}); err != nil {
-		helpers.ResponseWithPayload(w, http.StatusInternalServerError, []byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -106,24 +106,24 @@ func (handler *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	userId, err := helpers.GetUserIdFromRequest(r, false)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 	//get from database
 	user, err := handler.UserDb.GetUserById(context.Background(), userId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseWithPayload(w, 404, []byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	if err != nil {
-		helpers.ResponseNoPayload(w, 404)
+		http.Error(w, err.Error(), http.StatusNotFound)
 	}
 
 	//respond with json of user data
 	jsonResponse, err := json.Marshal(user)
 	if err != nil {
-		helpers.ResponseNoPayload(w, 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	helpers.ResponseWithPayload(w, 200, []byte(jsonResponse))
@@ -134,14 +134,14 @@ func (handler *Handler) GetUserProfileImage(w http.ResponseWriter, r *http.Reque
 	userId, err := helpers.GetUserIdFromRequest(r, true)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 	//get image id from datbase for specified user id
 	imageId, err := handler.UserDb.GetUserProfileImage(context.Background(), userId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 404)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	// make request to image service
@@ -151,7 +151,7 @@ func (handler *Handler) GetUserProfileImage(w http.ResponseWriter, r *http.Reque
 	resp, err := http.DefaultClient.Do(newReq)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseWithPayload(w, 500, []byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -159,7 +159,7 @@ func (handler *Handler) GetUserProfileImage(w http.ResponseWriter, r *http.Reque
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseWithPayload(w, 500, []byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
