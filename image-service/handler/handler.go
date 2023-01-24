@@ -9,18 +9,18 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/bernardn38/socialsphere/image-service/helpers"
 	"github.com/bernardn38/socialsphere/image-service/sql/userImages"
 	"github.com/bernardn38/socialsphere/image-service/token"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/minio/minio-go"
 )
 
 type Handler struct {
 	TokenManager *token.Manager
 	UserImageDB  *userImages.Queries
-	AwsSession   *session.Session
+	MinioClient  *minio.Client
 }
 
 // currently unused only support uploading jpeg
@@ -52,7 +52,7 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	buf := bytes.NewBuffer(nil)
 	jpeg.Encode(buf, img, &opts)
 
-	err = helpers.UploadToS3(buf.Bytes(), uuid.New().String())
+	err = helpers.UploadToS3(handler.MinioClient, buf.Bytes(), uuid.New().String())
 	if err != nil {
 		helpers.ResponseNoPayload(w, 500)
 		return
@@ -68,22 +68,18 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 func (handler *Handler) GetImage(w http.ResponseWriter, r *http.Request) {
 	// get image from s3 bucket
 	imageId := chi.URLParam(r, "imageId")
-	file, err := helpers.GetImageFromS3(imageId)
+	object, err := helpers.GetImageFromS3(handler.MinioClient, imageId)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, 500)
-		return
-	}
-	defer file.Close()
-	if err != nil {
-		helpers.ResponseNoPayload(w, 404)
 		return
 	}
 
 	//send image to client; cache image in client
 	w.Header().Set("Cache-Control", "max-age=86400")
 	w.Header().Set("Content-Type", "application/octet-stream")
-	_, err = io.Copy(w, file)
+
+	_, err = io.Copy(w, object)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, 500)

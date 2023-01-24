@@ -182,6 +182,7 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	}
 	if fileErr == nil {
 		err = SendImageToQueue(file, handler, "image-proccessing", imageId.UUID, h.Header.Get("Content-Type"))
+		log.Println(time.Now())
 		if err != nil {
 			log.Println(err)
 		}

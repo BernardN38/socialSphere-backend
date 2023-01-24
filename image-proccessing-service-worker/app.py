@@ -7,6 +7,7 @@ import sys
 from s3_helpers import get_image_from_s3, upload_image_to_s3
 from mimetypes import guess_extension
 import threading
+from datetime import datetime
 
 
 def callback(ch, method, properties, body):
@@ -21,10 +22,7 @@ def callback(ch, method, properties, body):
         compress_and_upload_image(image, imageId, extension)
     except Exception as e:
         print("exception", e )
-    t = time.localtime()
-    current_time = time.strftime("%H:%M:%S", t)
-    print(current_time)
-    print('image uploaded')
+    print('image uploaded', datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 def compress_and_upload_image(image, image_id, extension):
@@ -49,8 +47,7 @@ def compress_and_upload_image(image, image_id, extension):
                  optimize = True, 
                  quality = 60)
     img_io.seek(0)
-    time.sleep(2)
-    # upload_image_to_s3(img_io, image_id)
+    upload_image_to_s3(img_io, image_id)
     return
 
 def worker(queue_name):

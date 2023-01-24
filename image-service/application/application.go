@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
+	"github.com/minio/minio-go"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -23,6 +24,8 @@ type Config struct {
 	jwtSigningMethod jwt.Algorithm
 	dsn              string
 	rabbitmqUrl      string
+	minioKey         string
+	minioSecret      string
 }
 type App struct {
 	srv          server
@@ -38,7 +41,8 @@ type server struct {
 func New() *App {
 	app := App{}
 	dsn := os.Getenv("DSN")
-	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.HS256, dsn: dsn, rabbitmqUrl: "amqp://guest:guest@rabbitmq"}
+	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.HS256, dsn: dsn, rabbitmqUrl: "amqp://guest:guest@rabbitmq",
+		minioKey: "minio", minioSecret: "minio123"}
 	app.runAppSetup(config)
 	return &app
 }
@@ -52,12 +56,15 @@ func (app *App) runAppSetup(config Config) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	minioClient, err := minio.New("minio:9000", config.minioKey, config.minioSecret, false)
+	if err != nil {
+		log.Fatal(err)
+	}
 	queries := userImages.New(db)
 	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
-	h := &handler.Handler{TokenManager: tokenManger, UserImageDB: queries}
+	h := &handler.Handler{TokenManager: tokenManger, UserImageDB: queries, MinioClient: minioClient}
 	for i := 0; i < 10; i++ {
-		go ListenForMessages(&config)
+		go ListenForMessages(&config, minioClient)
 	}
 	app.srv.router = SetupRouter(h, tokenManger)
 	app.pgDb = db
@@ -80,7 +87,7 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 	router.Get("/image/{imageId}", handler.GetImage)
 	return router
 }
-func ListenForMessages(config *Config) {
+func ListenForMessages(config *Config, m *minio.Client) {
 	conn := connectToRabbitMQ(config.rabbitmqUrl)
 
 	channel, err := conn.Channel()
@@ -105,7 +112,7 @@ func ListenForMessages(config *Config) {
 				log.Println("image id invalid")
 				return
 			}
-			err := helpers.DeleteFromS3(imageId)
+			err := helpers.DeleteFromS3(m, imageId)
 			if err != nil {
 				log.Println(err)
 				d.Ack(false)

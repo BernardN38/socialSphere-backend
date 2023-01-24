@@ -15,5 +15,12 @@ require (
 
 require (
 	github.com/aws/smithy-go v1.13.3 // indirect
+	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/minio/minio-go v6.0.14+incompatible // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+	golang.org/x/text v0.3.7 // indirect
 )

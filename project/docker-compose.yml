@@ -59,11 +59,23 @@ services:
      - "6379:6379"
 
     volumes:
-     - $PWD/redis-data:/var/lib/redis
+      - $PWD/redis-data:/var/lib/redis
       - $PWD/redis.conf:/usr/local/etc/redis/redis.conf
 
     environment:
      - REDIS_REPLICATION_MODE=master
+
+  
+  minio:
+    image: minio/minio
+    command: server --address ":9000" --console-address ":9001" /data
+    ports:
+      - "9001:9001"
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    volumes:
+      - ${PWD}/minio-data:/data
 
   image-proccessing-service-worker:
     build:
@@ -138,5 +150,5 @@ services:
     deploy:
       mode: replicated
       replicas: 1
-    
+
 

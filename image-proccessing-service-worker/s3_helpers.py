@@ -1,15 +1,17 @@
-
+from minio import Minio
 import boto3
 
-s3 = boto3.resource('s3', region_name='us-east-2')
-
-bucket = s3.Bucket('image-service-socialsphere1')
+minioClient = Minio('minio:9000',
+                  access_key='minio',
+                  secret_key='minio123',
+                  secure=False)
 
 
 def get_image_from_s3(image_id):
-    object1 = bucket.Object(image_id)
+    object1 = minioClient.get_object('image-service-socialsphere1', image_id)
     return object1
 
 def upload_image_to_s3(image_obj, image_id):
-    bucket.upload_fileobj(image_obj, image_id)  
+    # bucket.upload_fileobj(image_obj, image_id)  
+    minioClient.put_object('image-service-socialsphere1', image_id, image_obj, -1, part_size=5*1024*1024)
     return 
