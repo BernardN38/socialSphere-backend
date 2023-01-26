@@ -59,7 +59,7 @@ func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 		tokenString := strings.TrimPrefix(auth, "Bearer ")
 		token, ok := tm.VerifyToken(tokenString)
 		if !ok {
-			helpers.ResponseNoPayload(w, 401)
+			helpers.ResponseNoPayload(w, http.StatusUnauthorized)
 			return
 		}
 

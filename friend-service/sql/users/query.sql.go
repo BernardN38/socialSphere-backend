@@ -70,6 +70,51 @@ func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
 	return err
 }
 
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, user_id, username, email, first_name, last_name
+FROM users
+WHERE email = $1 LIMIT 1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Username,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+	)
+	return i, err
+}
+
+const getUserByFirstName = `-- name: GetUserByFirstName :one
+SELECT id, user_id, username, email, first_name, last_name
+FROM users
+WHERE first_name = $1 LIMIT $2
+`
+
+type GetUserByFirstNameParams struct {
+	FirstName string
+	Limit     int32
+}
+
+func (q *Queries) GetUserByFirstName(ctx context.Context, arg GetUserByFirstNameParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByFirstName, arg.FirstName, arg.Limit)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Username,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+	)
+	return i, err
+}
+
 const getUserById = `-- name: GetUserById :one
 SELECT id, user_id, username, email, first_name, last_name
 FROM users
@@ -108,6 +153,102 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.LastName,
 	)
 	return i, err
+}
+
+const getUsersByFields = `-- name: GetUsersByFields :many
+SELECT user_id, username, first_name, last_name
+FROM users
+WHERE username = $1 or email = $2 or first_name = $3 or last_name = $4 LIMIT $5
+`
+
+type GetUsersByFieldsParams struct {
+	Username  string
+	Email     string
+	FirstName string
+	LastName  string
+	Limit     int32
+}
+
+type GetUsersByFieldsRow struct {
+	UserID    int32
+	Username  string
+	FirstName string
+	LastName  string
+}
+
+func (q *Queries) GetUsersByFields(ctx context.Context, arg GetUsersByFieldsParams) ([]GetUsersByFieldsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUsersByFields,
+		arg.Username,
+		arg.Email,
+		arg.FirstName,
+		arg.LastName,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUsersByFieldsRow
+	for rows.Next() {
+		var i GetUsersByFieldsRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Username,
+			&i.FirstName,
+			&i.LastName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUsersByLastName = `-- name: GetUsersByLastName :many
+SELECT id, user_id, username, email, first_name, last_name
+FROM users
+WHERE last_name = $1 LIMIT $2
+`
+
+type GetUsersByLastNameParams struct {
+	LastName string
+	Limit    int32
+}
+
+func (q *Queries) GetUsersByLastName(ctx context.Context, arg GetUsersByLastNameParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, getUsersByLastName, arg.LastName, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Username,
+			&i.Email,
+			&i.FirstName,
+			&i.LastName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUsers = `-- name: ListUsers :many

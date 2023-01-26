@@ -333,7 +333,7 @@
         }
       ]
     },{
-      "endpoint": "/friends/{userId}/friendships",
+      "endpoint": "/friends/friendships/{friendId}",
       "output_encoding": "no-op",
       "method": "POST",
       "input_headers": [
@@ -344,7 +344,31 @@
       ],
       "backend": [
         {
-          "url_pattern": "/friends/{userId}/friendships",
+          "url_pattern": "/friends/friendships/{friendId}",
+          "host": [
+            "http://friend-service:8080"
+          ]
+        }
+      ]
+    },{
+      "endpoint": "/friends/find",
+      "output_encoding": "no-op",
+      "method": "GET",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie",
+        "Content-Type"
+      ], 
+       "input_query_strings": [
+        "username",
+        "email",
+        "firstName",
+        "lastName"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/friends/find",
           "host": [
             "http://friend-service:8080"
           ]

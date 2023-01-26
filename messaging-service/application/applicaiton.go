@@ -59,7 +59,7 @@ func (app *App) runAppSetup(config Config) {
 	app.srv.handler = h
 }
 
-func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -70,7 +70,7 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 	router.Use(tm.VerifyJwtToken)
-	router.Get("/messaging", handler.SendMessage)
-	router.Get("/users/{userId}/checkOnline", handler.CheckOnline)
+	router.Get("/messaging", h.SendMessage)
+	router.Get("/users/{userId}/checkOnline", h.CheckOnline)
 	return router
 }

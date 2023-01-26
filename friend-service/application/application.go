@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bernardn38/socialsphere/friend-service/handler"
+	rpcreceiver "github.com/bernardn38/socialsphere/friend-service/rpc_receiver"
 	"github.com/bernardn38/socialsphere/friend-service/sql/users"
 	"github.com/bernardn38/socialsphere/friend-service/token"
 	"github.com/cristalhq/jwt/v4"
@@ -61,12 +62,15 @@ func (app *App) runAppSetup(config Config) {
 	app.tokenManager = tokenManger
 	app.srv.handler = h
 	//start workers for recieving rabbitmq messages
+	rabbitMQConn := connectToRabbitMQ(config.rabbitmqUrl)
 	for i := 0; i < 10; i++ {
-		go ListenForMessages(&config)
+		go ListenForMessages(&config, rabbitMQConn)
 	}
+	rpcReceiver := rpcreceiver.NewRpcReceiver(queries)
+	go rpcReceiver.ListenForRpc()
 }
 
-func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -77,14 +81,13 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 	router.Use(tm.VerifyJwtToken)
-	router.Post("/friends", handler.CreateUser)
-	router.Post("/friends/{userId}/friendships", handler.CreateFrinedship)
+	router.Get("/friends/find", h.FindFriends)
+	router.Post("/friends", h.CreateUser)
+	router.Post("/friends/friendships/{friendId}", h.CreateFriendship)
 	return router
 }
 
-func ListenForMessages(config *Config) {
-	conn := connectToRabbitMQ(config.rabbitmqUrl)
-
+func ListenForMessages(config *Config, conn *amqp.Connection) {
 	channel, err := conn.Channel()
 	if err != nil {
 		return
@@ -116,11 +119,10 @@ func connectToRabbitMQ(rabbitUrl string) *amqp.Connection {
 	for {
 		conn, err := amqp.Dial(rabbitUrl)
 		if err != nil {
-			log.Println("Connection not ready backing off for ", backOff)
 			time.Sleep(backOff)
 			backOff = backOff + (time.Second * 5)
 		} else {
-			log.Println("Connected to rabbit ")
+			log.Println("Successfully connected to rabbitmq")
 			return conn
 		}
 	}

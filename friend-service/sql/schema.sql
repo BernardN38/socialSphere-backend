@@ -12,5 +12,6 @@ CREATE TABLE friendships
 (
     id         serial PRIMARY KEY,
     friend_a int NOT NULL REFERENCES users(id),
-    friend_b int NOT NULL REFERENCES users(id)
+    friend_b int NOT NULL REFERENCES users(id),
+    UNIQUE (friend_a, friend_b)
 );

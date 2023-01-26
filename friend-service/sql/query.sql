@@ -8,6 +8,26 @@ SELECT *
 FROM users
 WHERE username = $1 LIMIT 1;
 
+-- name: GetUserByFirstName :one
+SELECT *
+FROM users
+WHERE first_name = $1 LIMIT $2;
+
+-- name: GetUserByEmail :one
+SELECT *
+FROM users
+WHERE email = $1 LIMIT 1;
+
+-- name: GetUsersByLastName :many
+SELECT *
+FROM users
+WHERE last_name = $1 LIMIT $2;
+
+-- name: GetUsersByFields :many
+SELECT user_id, username, first_name, last_name
+FROM users
+WHERE username = $1 or email = $2 or first_name = $3 or last_name = $4 LIMIT $5;
+
 -- name: ListUsers :many
 SELECT *
 FROM users
@@ -33,3 +53,4 @@ set username   = $2,
     first_name = $4,
     last_name  = $5
 WHERE id = $1 RETURNING *;
+

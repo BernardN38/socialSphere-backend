@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/bernardn38/socialsphere/authentication-service/handler"
+	rpcemitter "github.com/bernardn38/socialsphere/authentication-service/rpc_emitter"
 	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
 	"github.com/bernardn38/socialsphere/authentication-service/token"
 	"github.com/cristalhq/jwt/v4"
@@ -52,7 +53,8 @@ func (app *App) runAppSetup(config Config) {
 
 	queries := users.New(db)
 	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
-	h := &handler.Handler{UsersDb: queries, TokenManager: tokenManger}
+
+	h := &handler.Handler{UsersDb: queries, TokenManager: tokenManger, RpcEmitter: &rpcemitter.RpcEmitter{}}
 
 	app.srv.router = SetupRouter(h, tokenManger)
 	app.pgDb = db
@@ -60,7 +62,7 @@ func (app *App) runAppSetup(config Config) {
 	app.srv.handler = h
 }
 
-func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -73,7 +75,7 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Write([]byte("Server is up and running"))
 	})
-	router.Post("/register", handler.RegisterUser)
-	router.Post("/login", handler.LoginUser)
+	router.Post("/register", h.RegisterUser)
+	router.Post("/login", h.LoginUser)
 	return router
 }

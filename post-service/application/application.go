@@ -66,7 +66,7 @@ func (app *App) runAppSetup(config Config) {
 	app.srv.handler = h
 }
 
-func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -77,16 +77,16 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 	router.Use(tm.VerifyJwtToken)
-	router.Post("/posts", handler.CreatePost)
-	router.Get("/users/{userId}/posts", handler.GetPostsPageByUserId)
-	router.Get("/posts/{postId}", handler.GetPost)
-	router.Delete("/posts/{postId}", handler.DeletePost)
-	router.Get("/posts/{postId}/likes", handler.GetLikeCount)
-	router.Post("/posts/{postId}/likes", handler.CreatePostLike)
-	router.Delete("/posts/{postId}/likes", handler.DeleteLike)
-	router.Get("/posts/{postId}/likes/check", handler.CheckLike)
-	router.Post("/posts/{postId}/comments", handler.CreateComment)
-	router.Get("/posts/{postId}/comments", handler.GetAllPostComments)
+	router.Post("/posts", h.CreatePost)
+	router.Get("/users/{userId}/posts", h.GetPostsPageByUserId)
+	router.Get("/posts/{postId}", h.GetPost)
+	router.Delete("/posts/{postId}", h.DeletePost)
+	router.Get("/posts/{postId}/likes", h.GetLikeCount)
+	router.Post("/posts/{postId}/likes", h.CreatePostLike)
+	router.Delete("/posts/{postId}/likes", h.DeleteLike)
+	router.Get("/posts/{postId}/likes/check", h.CheckLike)
+	router.Post("/posts/{postId}/comments", h.CreateComment)
+	router.Get("/posts/{postId}/comments", h.GetAllPostComments)
 	return router
 }
 

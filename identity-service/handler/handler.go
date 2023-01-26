@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bernardn38/socialsphere/identity-service/helpers"
-	"github.com/bernardn38/socialsphere/identity-service/imageServiceBroker"
+	imageServiceBroker "github.com/bernardn38/socialsphere/identity-service/image_service_broker"
 	"github.com/bernardn38/socialsphere/identity-service/sql/users"
 	"github.com/bernardn38/socialsphere/identity-service/token"
 	"github.com/google/uuid"
@@ -24,7 +24,7 @@ type Handler struct {
 
 type Post struct {
 	Body       string    `json:"body" validate:"required"`
-	Author     int       `json:"author" validate:"required"'`
+	Author     int       `json:"author" validate:"required"`
 	AuthorName string    `json:"authorName" validate:"required"`
 	CreatedAt  time.Time `json:"created_at"`
 }
@@ -38,7 +38,7 @@ type UserForm struct {
 	ProfileImageId uuid.UUID `json:"profileImageId"`
 }
 
-func (handler *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	// parse user form from request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -49,7 +49,7 @@ func (handler *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(body, &userForm)
 
 	//create new user in database
-	_, err = handler.UserDb.CreateUser(context.Background(), users.CreateUserParams{ID: userForm.UserId,
+	_, err = h.UserDb.CreateUser(context.Background(), users.CreateUserParams{ID: userForm.UserId,
 		Username: userForm.Username, FirstName: userForm.Username, LastName: userForm.LastName, Email: userForm.Email})
 	if err != nil {
 		log.Println(err)
@@ -59,7 +59,7 @@ func (handler *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	helpers.ResponseNoPayload(w, 201)
 }
-func (handler *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Request) {
 	// get user id from url param if missing use jwt token user id
 	userId, err := helpers.GetUserIdFromRequest(r, true)
 	if err != nil {
@@ -74,7 +74,7 @@ func (handler *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Re
 		http.Error(w, "File too large", http.StatusRequestEntityTooLarge)
 		return
 	}
-	file, h, err := r.FormFile("image")
+	file, header, err := r.FormFile("image")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -83,7 +83,7 @@ func (handler *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Re
 
 	// create profile image association in database
 	imageId := uuid.New()
-	if err = handler.UserDb.CreateUserProfileImage(context.Background(), users.CreateUserProfileImageParams{
+	if err = h.UserDb.CreateUserProfileImage(context.Background(), users.CreateUserProfileImageParams{
 		UserID:  userId,
 		ImageID: imageId,
 	}); err != nil {
@@ -93,7 +93,7 @@ func (handler *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Re
 
 	//send image to rabbitmq for processing and upload to s3 bucket
 	if file != nil {
-		err = SendImageToQueue(file, handler, imageId, h.Header.Get("Content-Type"))
+		err = SendImageToQueue(file, h, imageId, header.Header.Get("Content-Type"))
 		if err != nil {
 			log.Println(err)
 		}
@@ -101,7 +101,7 @@ func (handler *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Re
 
 	helpers.ResponseNoPayload(w, http.StatusCreated)
 }
-func (handler *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	// get user id from url param if missing return error
 	userId, err := helpers.GetUserIdFromRequest(r, false)
 	if err != nil {
@@ -110,7 +110,7 @@ func (handler *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//get from database
-	user, err := handler.UserDb.GetUserById(context.Background(), userId)
+	user, err := h.UserDb.GetUserById(context.Background(), userId)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -129,7 +129,7 @@ func (handler *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	helpers.ResponseWithPayload(w, 200, []byte(jsonResponse))
 }
 
-func (handler *Handler) GetUserProfileImage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetUserProfileImage(w http.ResponseWriter, r *http.Request) {
 	// get user id from url param if missing use jwt token user id
 	userId, err := helpers.GetUserIdFromRequest(r, true)
 	if err != nil {
@@ -138,7 +138,7 @@ func (handler *Handler) GetUserProfileImage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	//get image id from datbase for specified user id
-	imageId, err := handler.UserDb.GetUserProfileImage(context.Background(), userId)
+	imageId, err := h.UserDb.GetUserProfileImage(context.Background(), userId)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusNotFound)

@@ -40,7 +40,7 @@ func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 		token, err := tm.VerifyToken(tokenString)
 		if err != nil {
 			log.Println(err)
-			helpers.ResponseNoPayload(w, 401)
+			helpers.ResponseNoPayload(w, http.StatusUnauthorized)
 			return
 		}
 

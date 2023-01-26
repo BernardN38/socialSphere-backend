@@ -68,12 +68,13 @@ func (app *App) runAppSetup(config Config) {
 	app.tokenManager = tokenManger
 	app.srv.handler = h
 	//start workers for recieving rabbitmq messages
+	rabbitMQConn := connectToRabbitMQ(config.rabbitmqUrl)
 	for i := 0; i < 10; i++ {
-		go ListenForMessages(&config, minioClient)
+		go ListenForMessages(&config, minioClient, rabbitMQConn)
 	}
 }
 
-func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -84,12 +85,11 @@ func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 	router.Use(tm.VerifyJwtToken)
-	router.Post("/image", handler.UploadImage)
-	router.Get("/image/{imageId}", handler.GetImage)
+	router.Post("/image", h.UploadImage)
+	router.Get("/image/{imageId}", h.GetImage)
 	return router
 }
-func ListenForMessages(config *Config, m *minio.Client) {
-	conn := connectToRabbitMQ(config.rabbitmqUrl)
+func ListenForMessages(config *Config, m *minio.Client, conn *amqp.Connection) {
 
 	channel, err := conn.Channel()
 	if err != nil {

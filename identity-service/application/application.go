@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/bernardn38/socialsphere/identity-service/handler"
-	"github.com/bernardn38/socialsphere/identity-service/imageServiceBroker"
+	imageServiceBroker "github.com/bernardn38/socialsphere/identity-service/image_service_broker"
+	rpcreceiver "github.com/bernardn38/socialsphere/identity-service/rpc_receiver"
 	"github.com/bernardn38/socialsphere/identity-service/sql/users"
 	"github.com/bernardn38/socialsphere/identity-service/token"
 	"github.com/cristalhq/jwt/v4"
@@ -64,16 +65,20 @@ func (app *App) runAppSetup(config Config) {
 	app.pgDb = db
 	app.tokenManager = tokenManger
 	app.srv.handler = h
+
+	//listen for calls over rpc
+	rpcReceiver := rpcreceiver.NewRpcReceiver(queries)
+	go rpcReceiver.ListenForRpc()
 }
 
-func SetupRouter(handler *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
-	router.Post("/users", handler.CreateUser)
-	router.Mount("/", ProtectedRoutes(*handler, tm))
+	router.Post("/users", h.CreateUser)
+	router.Mount("/", ProtectedRoutes(*h, tm))
 	return router
 }
 
-func ProtectedRoutes(handler handler.Handler, tm *token.Manager) http.Handler {
+func ProtectedRoutes(h handler.Handler, tm *token.Manager) http.Handler {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -87,9 +92,9 @@ func ProtectedRoutes(handler handler.Handler, tm *token.Manager) http.Handler {
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Write([]byte("Server is up and running"))
 	})
-	router.Get("/users/{userId}", handler.GetUser)
-	router.Get("/users/{userId}/profileImage", handler.GetUserProfileImage)
-	router.Post("/users/profileImage", handler.CreateUserProfileImage)
+	router.Get("/users/{userId}", h.GetUser)
+	router.Get("/users/{userId}/profileImage", h.GetUserProfileImage)
+	router.Post("/users/profileImage", h.CreateUserProfileImage)
 	return router
 }
 

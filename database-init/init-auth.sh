@@ -29,7 +29,6 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         id         serial PRIMARY KEY,
         username   text NOT NULL UNIQUE,
         email      text NOT NULL UNIQUE,
-        password   text NOT NULL,
         first_name text NOT NULL,
         last_name  text NOT NULL
     );
@@ -96,6 +95,7 @@ CREATE TABLE friendships
     id         serial PRIMARY KEY,
     friend_a int NOT NULL REFERENCES users(id),
     friend_b int NOT NULL REFERENCES users(id)
+    UNIQUE (friend_a, friend_b)
 );
   COMMIT;
 

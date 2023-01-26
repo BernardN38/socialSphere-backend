@@ -37,7 +37,7 @@ func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 		}
 		token, ok := tm.VerifyToken(tokenString)
 		if !ok {
-			helpers.ResponseNoPayload(w, 401)
+			helpers.ResponseNoPayload(w, http.StatusUnauthorized)
 			return
 		}
 		ctx := context.WithValue(r.Context(), "userId", token.ID)

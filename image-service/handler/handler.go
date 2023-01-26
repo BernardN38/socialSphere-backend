@@ -22,7 +22,7 @@ type Handler struct {
 }
 
 // currently unused only support uploading jpeg
-func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	// Maximum upload of 10 MB files
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
@@ -45,7 +45,7 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
-	err = helpers.UploadToS3(handler.MinioClient, buf.Bytes(), uuid.New().String())
+	err = helpers.UploadToS3(h.MinioClient, buf.Bytes(), uuid.New().String())
 	if err != nil {
 		http.Error(w, "Error uploading to", http.StatusInternalServerError)
 		return
@@ -58,13 +58,13 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	helpers.ResponseNoPayload(w, 201)
 }
 
-func (handler *Handler) GetImage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetImage(w http.ResponseWriter, r *http.Request) {
 	// get image from s3 bucket
 	imageId := chi.URLParam(r, "imageId")
-	object, err := helpers.GetImageFromS3(handler.MinioClient, imageId)
+	object, err := helpers.GetImageFromS3(h.MinioClient, imageId)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(w, "", http.StatusNotFound)
 		return
 	}
 

@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -11,16 +9,18 @@ import (
 	"time"
 
 	"github.com/bernardn38/socialsphere/authentication-service/helpers"
-	"github.com/bernardn38/socialsphere/authentication-service/rabbitmqBroker"
+	rabbitmqBroker "github.com/bernardn38/socialsphere/authentication-service/rabbitmq_broker"
+	rpcemitter "github.com/bernardn38/socialsphere/authentication-service/rpc_emitter"
 	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
 	"github.com/bernardn38/socialsphere/authentication-service/token"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Handler struct {
-	UsersDb      *users.Queries
-	TokenManager *token.Manager
-	Emitter      *rabbitmqBroker.Emitter
+	UsersDb         *users.Queries
+	TokenManager    *token.Manager
+	RabbitMQEmitter *rabbitmqBroker.RabbitMQEmitter
+	RpcEmitter      *rpcemitter.RpcEmitter
 }
 type RegisterForm struct {
 	Username  string `json:"username" validate:"required,min=2,max=100"`
@@ -34,7 +34,7 @@ type LoginForm struct {
 	Password string `json:"password" validate:"required"`
 }
 
-func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := io.ReadAll(r.Body)
 	form, err := ValidateRegisterForm(reqBody)
 	if err != nil {
@@ -48,33 +48,31 @@ func (handler *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	form.Password = string(encryptedPassword)
-	createdUserId, err := CreateUser(handler.UsersDb, form)
+	createdUserId, err := CreateUser(h.UsersDb, form)
 	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
-	body := make(map[string]interface{})
-	body["firstName"] = form.FirstName
-	body["lastName"] = form.LastName
-	body["userId"] = createdUserId
-	body["username"] = form.Username
-	body["email"] = form.Email
-
-	reqData, err := json.Marshal(body)
-	if err != nil {
-		log.Println(err)
-		return
+	user := rpcemitter.CreateUserParams{
+		FirstName: form.FirstName,
+		LastName:  form.LastName,
+		UserId:    int32(createdUserId),
+		Username:  form.Username,
+		Email:     form.Email,
 	}
-	_, err = http.Post("http://identity-service:8080/users", "application/json", bytes.NewBuffer(reqData))
+	err = h.RpcEmitter.CreateIdentityServiceUser(user)
 	if err != nil {
-		log.Println(err)
-		return
+		log.Println(err, "identity")
+	}
+	err = h.RpcEmitter.CreateFriendServiceUser(user)
+	if err != nil {
+		log.Println(err, "friends")
 	}
 	log.Println("Register successful username: ", form.Username)
-	helpers.ResponseWithPayload(w, 200, []byte("Register Success"))
+	helpers.ResponseWithPayload(w, 201, []byte(`Register Success`))
 }
 
-func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := io.ReadAll(r.Body)
 	form, err := ValidateLoginForm(reqBody)
 	if err != nil {
@@ -82,7 +80,7 @@ func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	user, err := handler.UsersDb.GetUserByUsername(context.Background(), form.Username)
+	user, err := h.UsersDb.GetUserByUsername(context.Background(), form.Username)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
@@ -93,7 +91,7 @@ func (handler *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newToken, err := handler.TokenManager.GenerateToken(fmt.Sprintf("%v", user.ID), user.Username, time.Minute*60)
+	newToken, err := h.TokenManager.GenerateToken(fmt.Sprintf("%v", user.ID), user.Username, time.Minute*60)
 	if err != nil {
 		return
 	}

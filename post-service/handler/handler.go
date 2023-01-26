@@ -42,39 +42,39 @@ type PostLikes struct {
 	LikeCount int64  `json:"likeCount"`
 }
 
-func (handler *Handler) GetLikeCount(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetLikeCount(w http.ResponseWriter, r *http.Request) {
 	postId := chi.URLParam(r, "postId")
 	convertedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
 		log.Println(err)
 	}
-	likeCount, err := handler.PostDb.GetPostLikeCountById(context.TODO(), convertedPostId)
+	likeCount, err := h.PostDb.GetPostLikeCountById(context.Background(), convertedPostId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 404)
+		helpers.ResponseNoPayload(w, http.StatusNotFound)
 		return
 	}
 
 	helpers.ResponseWithJson(w, 200, helpers.JsonResponse{Data: PostLikes{PostId: postId, LikeCount: likeCount}, Timestamp: time.Now()})
 }
 
-func (handler *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	userId, err := helpers.GetUserIdFromRequest(r, true)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
 	username, ok := r.Context().Value("username").(string)
 	if !ok {
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
 	postId := chi.URLParam(r, "postId")
 	convertedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
 	bodyBytes, err := io.ReadAll(r.Body)
@@ -98,14 +98,14 @@ func (handler *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdComment, err := handler.PostDb.CreateComment(context.Background(), post.CreateCommentParams{Body: commentBody, UserID: userId, AuthorName: username})
+	createdComment, err := h.PostDb.CreateComment(context.Background(), post.CreateCommentParams{Body: commentBody, UserID: userId, AuthorName: username})
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, http.StatusInternalServerError)
 		return
 	}
 
-	_, err = handler.PostDb.CreatePostComment(context.Background(), post.CreatePostCommentParams{
+	_, err = h.PostDb.CreatePostComment(context.Background(), post.CreatePostCommentParams{
 		PostID:    convertedPostId,
 		CommentID: createdComment.ID,
 	})
@@ -117,15 +117,15 @@ func (handler *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	helpers.ResponseWithJson(w, 201, helpers.JsonResponse{Data: createdComment, Timestamp: time.Now()})
 }
 
-func (handler *Handler) GetAllPostComments(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetAllPostComments(w http.ResponseWriter, r *http.Request) {
 	postId := chi.URLParam(r, "postId")
 	parsedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	postsComments, err := handler.PostDb.GetAllPostCommentsByPostId(context.Background(), parsedPostId)
+	postsComments, err := h.PostDb.GetAllPostCommentsByPostId(context.Background(), parsedPostId)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, http.StatusNotFound)
@@ -142,7 +142,7 @@ func (handler *Handler) GetAllPostComments(w http.ResponseWriter, r *http.Reques
 		Timestamp: time.Now(),
 	})
 }
-func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value("userId")
 	username := r.Context().Value("username").(string)
 	convertedUserId, err := helpers.ConvertUserId(userId)
@@ -157,10 +157,10 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	}
 	body := r.MultipartForm.Value["body"]
 	if len(body) < 1 {
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 	}
 	var imageId uuid.NullUUID
-	file, h, fileErr := r.FormFile("image")
+	file, header, fileErr := r.FormFile("image")
 	if fileErr != nil {
 		fmt.Println("Error Retrieving the File")
 		fmt.Println(fileErr)
@@ -170,7 +170,7 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		imageId.Valid = true
 	}
 
-	createdPost, err := handler.PostDb.CreatePost(context.Background(), post.CreatePostParams{
+	createdPost, err := h.PostDb.CreatePost(context.Background(), post.CreatePostParams{
 		Body:       body[0],
 		UserID:     convertedUserId,
 		AuthorName: username,
@@ -181,7 +181,7 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if fileErr == nil {
-		err = SendImageToQueue(file, handler, "image-proccessing", imageId.UUID, h.Header.Get("Content-Type"))
+		err = SendImageToQueue(file, h, "image-proccessing", imageId.UUID, header.Header.Get("Content-Type"))
 		log.Println(time.Now())
 		if err != nil {
 			log.Println(err)
@@ -195,18 +195,18 @@ func (handler *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	helpers.ResponseWithPayload(w, http.StatusCreated, []byte(fmt.Sprintf(`{Post created with id: "%v"}`, createdPost.ID)))
 }
 
-func (handler *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 	postId := chi.URLParam(r, "postId")
 	convertedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	respPost, err := handler.PostDb.GetPostByIdWithLikes(context.TODO(), convertedPostId)
+	respPost, err := h.PostDb.GetPostByIdWithLikes(context.Background(), convertedPostId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			helpers.ResponseNoPayload(w, 404)
+			helpers.ResponseNoPayload(w, http.StatusNotFound)
 			return
 		}
 		helpers.ResponseNoPayload(w, 500)
@@ -218,14 +218,14 @@ func (handler *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (handler *Handler) GetPostsPageByUserId(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetPostsPageByUserId(w http.ResponseWriter, r *http.Request) {
 	pageNo := r.URL.Query().Get("pageNo")
 	pageSize := r.URL.Query().Get("pageSize")
 
 	userId, err := helpers.GetUserIdFromRequest(r, false)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 401)
+		helpers.ResponseNoPayload(w, http.StatusUnauthorized)
 		return
 	}
 	limit, offset, err := ValidatePagination(pageSize, pageNo)
@@ -234,13 +234,13 @@ func (handler *Handler) GetPostsPageByUserId(w http.ResponseWriter, r *http.Requ
 		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
 		return
 	}
-	posts, err := handler.PostDb.GetPostByUserIdPaged(context.Background(), post.GetPostByUserIdPagedParams{
+	posts, err := h.PostDb.GetPostByUserIdPaged(context.Background(), post.GetPostByUserIdPagedParams{
 		UserID: userId,
 		Limit:  limit + 1,
 		Offset: offset,
 	})
 	if err != nil {
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 	}
 	var lastPage bool
 	if len(posts) > int(limit) {
@@ -259,10 +259,11 @@ func (handler *Handler) GetPostsPageByUserId(w http.ResponseWriter, r *http.Requ
 		Data:      respPage,
 		Timestamp: time.Now(),
 	}
+
 	helpers.ResponseWithJson(w, 200, jsonResponse)
 }
 
-func (handler *Handler) DeletePost(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeletePost(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value("userId")
 	parsedUserId, err := helpers.ConvertUserId(userId)
 	if err != nil {
@@ -274,10 +275,10 @@ func (handler *Handler) DeletePost(w http.ResponseWriter, r *http.Request) {
 	convertedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	imageId, err := handler.PostDb.DeletePostById(context.Background(), post.DeletePostByIdParams{
+	imageId, err := h.PostDb.DeletePostById(context.Background(), post.DeletePostByIdParams{
 		ID:     convertedPostId,
 		UserID: parsedUserId,
 	})
@@ -285,10 +286,10 @@ func (handler *Handler) DeletePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithJson(w, 500, helpers.JsonResponse{Msg: err.Error()})
 		return
 	}
-	handler.Emitter.PushDelete(imageId.UUID.String())
+	h.Emitter.PushDelete(imageId.UUID.String())
 	helpers.ResponseNoPayload(w, 200)
 }
-func (handler *Handler) CreatePostLike(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreatePostLike(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value("userId")
 	parsedUserId, err := helpers.ConvertUserId(userId)
 	if err != nil {
@@ -299,16 +300,16 @@ func (handler *Handler) CreatePostLike(w http.ResponseWriter, r *http.Request) {
 	convertedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	_, err = handler.PostDb.CreatePostLike(context.Background(), post.CreatePostLikeParams{
+	_, err = h.PostDb.CreatePostLike(context.Background(), post.CreatePostLikeParams{
 		PostID: convertedPostId,
 		UserID: parsedUserId,
 	})
 	var duplicateEntryError = &pq.Error{Code: "23505"}
 	if errors.As(err, &duplicateEntryError) {
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
 	if err != nil {
@@ -319,7 +320,7 @@ func (handler *Handler) CreatePostLike(w http.ResponseWriter, r *http.Request) {
 	helpers.ResponseNoPayload(w, 201)
 }
 
-func (handler *Handler) DeleteLike(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteLike(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value("userId")
 	parsedUserId, err := helpers.ConvertUserId(userId)
 	if err != nil {
@@ -330,10 +331,10 @@ func (handler *Handler) DeleteLike(w http.ResponseWriter, r *http.Request) {
 	convertedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	err = handler.PostDb.DeletePostLike(context.Background(), post.DeletePostLikeParams{
+	err = h.PostDb.DeletePostLike(context.Background(), post.DeletePostLikeParams{
 		UserID: parsedUserId,
 		PostID: convertedPostId,
 	})
@@ -345,7 +346,7 @@ func (handler *Handler) DeleteLike(w http.ResponseWriter, r *http.Request) {
 	helpers.ResponseNoPayload(w, 200)
 }
 
-func (handler *Handler) CheckLike(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CheckLike(w http.ResponseWriter, r *http.Request) {
 	userId := r.Context().Value("userId")
 	parsedUserId, err := helpers.ConvertUserId(userId)
 	if err != nil {
@@ -356,10 +357,10 @@ func (handler *Handler) CheckLike(w http.ResponseWriter, r *http.Request) {
 	convertedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 400)
+		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	isLiked, err := handler.PostDb.CheckLike(context.Background(), post.CheckLikeParams{
+	isLiked, err := h.PostDb.CheckLike(context.Background(), post.CheckLikeParams{
 		PostID: convertedPostId,
 		UserID: parsedUserId,
 	})

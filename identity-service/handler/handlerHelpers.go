@@ -27,12 +27,12 @@ func ValidatePostForm(reqBody []byte) (*Post, error) {
 	return &form, nil
 }
 
-func SendImageToQueue(file multipart.File, handler *Handler, imageId uuid.UUID, contentType string) error {
+func SendImageToQueue(file multipart.File, h *Handler, imageId uuid.UUID, contentType string) error {
 	buf := bytes.NewBuffer(nil)
 	if _, err := io.Copy(buf, file); err != nil {
 		log.Println(err)
 	}
-	err := handler.Emitter.Push(buf.Bytes(), "image-proccessing", imageId.String(), contentType)
+	err := h.Emitter.Push(buf.Bytes(), "image-proccessing", imageId.String(), contentType)
 	if err != nil {
 		return err
 	}

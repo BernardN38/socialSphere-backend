@@ -33,27 +33,27 @@ func (h *Handler) CheckOnline(w http.ResponseWriter, r *http.Request) {
 	h.UserMutex.RUnlock()
 	w.Write([]byte(fmt.Sprintf("%v", connected)))
 }
-func (handler *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	userId := r.Context().Value("userId").(string)
 	username := r.Context().Value("username").(string)
 	log.Println(userId, "Connected")
 
-	ws, err := handler.Upgrader.Upgrade(w, r, nil)
+	ws, err := h.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	handler.UserMutex.Lock()
-	handler.Conns[userId] = ws
-	handler.UserMutex.Unlock()
+	h.UserMutex.Lock()
+	h.Conns[userId] = ws
+	h.UserMutex.Unlock()
 
 	defer func() {
-		handler.UserMutex.Lock()
-		delete(handler.Conns, userId)
-		handler.UserMutex.Unlock()
+		h.UserMutex.Lock()
+		delete(h.Conns, userId)
+		h.UserMutex.Unlock()
 	}()
-	pubsub := handler.Rdb.Subscribe(ctx, userId)
+	pubsub := h.Rdb.Subscribe(ctx, userId)
 	defer pubsub.Close()
 	for {
 		var req Request
@@ -66,14 +66,14 @@ func (handler *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		req.From = userId
 		req.FromUserName = username
 		message, _ := json.Marshal(req)
-		err = handler.Rdb.Publish(ctx, userId, message).Err()
+		err = h.Rdb.Publish(ctx, userId, message).Err()
 		if err != nil {
 			log.Println(err)
 		}
 		// if userId == req.To {
 		// 	continue
 		// }
-		if conn, ok := handler.Conns[req.To]; ok {
+		if conn, ok := h.Conns[req.To]; ok {
 			msg, err := pubsub.ReceiveMessage(ctx)
 			if err != nil {
 				panic(err)

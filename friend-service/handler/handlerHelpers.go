@@ -28,35 +28,52 @@ func CreateUser(usersDb *users.Queries, form *UserForm) (int32, error) {
 	return createdUser.ID, nil
 }
 
-func ValidateUserForm(reqBody []byte) (*UserForm, error) {
+func ValidateUserForm(reqBody []byte) (UserForm, error) {
 	var form UserForm
 	err := json.Unmarshal(reqBody, &form)
 	if err != nil {
-		return nil, err
+		return UserForm{}, err
 	}
 
 	v := validator.New()
 	err = v.Struct(form)
 	if err != nil {
-		return nil, err
+		return UserForm{}, err
 	}
 
-	return &form, nil
+	return form, nil
 }
-func ValidateFriendshipForm(reqBody []byte) (*UserFriendshipForm, error) {
+func ValidateFriendshipForm(reqBody []byte) (UserFriendshipForm, error) {
 	var form UserFriendshipForm
 	err := json.Unmarshal(reqBody, &form)
 	if err != nil {
-		return nil, err
+		return UserFriendshipForm{}, err
 	}
 
 	v := validator.New()
 	err = v.Struct(form)
 	if err != nil {
-		return nil, err
+		return UserFriendshipForm{}, err
 	}
 
-	return &form, nil
+	return form, nil
+}
+
+func ValidateFindFriendsForm(r *http.Request) (FindFriendsForm, error) {
+	params := r.URL.Query()
+	form := FindFriendsForm{
+		Username:  params.Get("username"),
+		Email:     params.Get("email"),
+		FirstName: params.Get("firstName"),
+		LastName:  params.Get("lastName"),
+	}
+	v := validator.New()
+	err := v.Struct(form)
+	if err != nil {
+		return FindFriendsForm{}, err
+	}
+	log.Println(params, form)
+	return form, nil
 }
 
 func SetCookie(w http.ResponseWriter, token *jwt.Token) {

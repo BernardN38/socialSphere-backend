@@ -61,7 +61,7 @@ func ValidateLoginForm(reqBody []byte) (*LoginForm, error) {
 	return &form, nil
 }
 
-func CheckForValidCookie(r *http.Request, handler *Handler) (*jwt.RegisteredClaims, bool) {
+func CheckForValidCookie(r *http.Request, h *Handler) (*jwt.RegisteredClaims, bool) {
 	cookie, err := r.Cookie("jwtToken")
 	if err != nil {
 		log.Println(err)
@@ -74,7 +74,7 @@ func CheckForValidCookie(r *http.Request, handler *Handler) (*jwt.RegisteredClai
 		return nil, false
 	}
 	token := cookieFields[1]
-	claims, ok := handler.TokenManager.VerifyToken(token)
+	claims, ok := h.TokenManager.VerifyToken(token)
 	if !ok {
 		return nil, false
 	}
@@ -100,8 +100,8 @@ func SetCookie(w http.ResponseWriter, token *jwt.Token) {
 	log.Println("cookie set:", cookie)
 }
 
-func UpdateCookie(w http.ResponseWriter, handler *Handler, userId string, username string) {
-	newToken, err := handler.TokenManager.GenerateToken(userId, username, time.Minute*60)
+func UpdateCookie(w http.ResponseWriter, h *Handler, userId string, username string) {
+	newToken, err := h.TokenManager.GenerateToken(userId, username, time.Minute*60)
 	if err != nil {
 		return
 	}
