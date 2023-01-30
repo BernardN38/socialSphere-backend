@@ -2,12 +2,14 @@ package handler
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 
 	"github.com/bernardn38/socialsphere/image-service/helpers"
+	"github.com/bernardn38/socialsphere/image-service/models"
 	"github.com/bernardn38/socialsphere/image-service/sql/userImages"
 	"github.com/bernardn38/socialsphere/image-service/token"
 	"github.com/go-chi/chi/v5"
@@ -19,6 +21,25 @@ type Handler struct {
 	TokenManager *token.Manager
 	UserImageDB  *userImages.Queries
 	MinioClient  *minio.Client
+}
+
+func NewHandler(config models.Config) (*Handler, error) {
+	//open connection to postgres
+	db, err := sql.Open("postgres", config.PostgresUrl)
+	if err != nil {
+		return nil, err
+	}
+	// init sqlc user queries
+	queries := userImages.New(db)
+
+	//init jwt token manager
+	tokenManger := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
+	minioClient, err := minio.New("minio:9000", config.MinioKey, config.MinioSecret, false)
+	if err != nil {
+		return nil, err
+	}
+	handler := Handler{UserImageDB: queries, TokenManager: tokenManger, MinioClient: minioClient}
+	return &handler, nil
 }
 
 // currently unused only support uploading jpeg

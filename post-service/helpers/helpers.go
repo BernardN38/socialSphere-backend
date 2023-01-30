@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/minio/minio-go"
 )
 
 type JsonResponse struct {
@@ -86,4 +88,15 @@ func GetUserIdFromRequest(r *http.Request, checkContext bool) (int32, error) {
 	}
 	return userId, nil
 
+}
+
+func UploadToS3(m *minio.Client, file []byte, imageId string) error {
+	fileReader := bytes.NewReader(file)
+	info, err := m.PutObject("image-service-socialsphere1", imageId, fileReader, fileReader.Size(), minio.PutObjectOptions{})
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	log.Println(info)
+	return nil
 }

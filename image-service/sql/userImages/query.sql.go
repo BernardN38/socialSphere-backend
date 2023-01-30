@@ -17,7 +17,7 @@ VALUES ($1, $2 ) RETURNING id, user_id, image_id, created_at
 `
 
 type CreateImageParams struct {
-	UserID  uuid.UUID
+	UserID  int32
 	ImageID uuid.UUID
 }
 
@@ -50,7 +50,7 @@ FROM user_images
 WHERE user_id = $1
 `
 
-func (q *Queries) DeleteImagesByUserId(ctx context.Context, userID uuid.UUID) error {
+func (q *Queries) DeleteImagesByUserId(ctx context.Context, userID int32) error {
 	_, err := q.db.ExecContext(ctx, deleteImagesByUserId, userID)
 	return err
 }
@@ -112,7 +112,7 @@ FROM user_images
 WHERE user_id = $1
 `
 
-func (q *Queries) GetImagesByUserId(ctx context.Context, userID uuid.UUID) ([]UserImage, error) {
+func (q *Queries) GetImagesByUserId(ctx context.Context, userID int32) ([]UserImage, error) {
 	rows, err := q.db.QueryContext(ctx, getImagesByUserId, userID)
 	if err != nil {
 		return nil, err
@@ -148,7 +148,7 @@ ORDER BY created_at limit $2 OFFSET $3
 `
 
 type GetImagesByUserIdPagedParams struct {
-	UserID uuid.UUID
+	UserID int32
 	Limit  int32
 	Offset int32
 }

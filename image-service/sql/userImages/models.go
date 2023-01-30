@@ -12,7 +12,7 @@ import (
 
 type UserImage struct {
 	ID        int32
-	UserID    uuid.UUID
+	UserID    int32
 	ImageID   uuid.UUID
 	CreatedAt time.Time
 }

@@ -1,80 +1,82 @@
 package application
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/bernardn38/socialsphere/image-service/handler"
-	"github.com/bernardn38/socialsphere/image-service/helpers"
-	"github.com/bernardn38/socialsphere/image-service/sql/userImages"
-	"github.com/bernardn38/socialsphere/image-service/token"
+	"github.com/bernardn38/socialsphere/image-service/models"
+	"github.com/bernardn38/socialsphere/image-service/rabbitmq_broker"
+	"github.com/bernardn38/socialsphere/image-service/rpc_broker"
 	"github.com/cristalhq/jwt/v4"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
-	"github.com/minio/minio-go"
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type Config struct {
-	jwtSecretKey     string
-	jwtSigningMethod jwt.Algorithm
-	dsn              string
-	rabbitmqUrl      string
-	minioKey         string
-	minioSecret      string
-}
 type App struct {
-	srv          server
-	pgDb         *sql.DB
-	tokenManager *token.Manager
+	srv server
 }
 
 type server struct {
-	router  *chi.Mux
-	handler *handler.Handler
+	router *chi.Mux
+	port   string
 }
 
 func New() *App {
 	app := App{}
-	dsn := os.Getenv("DSN")
-	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.HS256, dsn: dsn, rabbitmqUrl: "amqp://guest:guest@rabbitmq",
-		minioKey: "minio", minioSecret: "minio123"}
+
+	//get configuration from enviroment and validate
+	postgresUrl := os.Getenv("DSN")
+	jwtSecret := os.Getenv("jwtSecret")
+	rabbitMQUrl := os.Getenv("rabbitMQUrl")
+	minioKey := os.Getenv("minioKey")
+	minioSecret := os.Getenv("minioSecret")
+	port := os.Getenv("port")
+	config := models.Config{
+		JwtSecretKey:     jwtSecret,
+		JwtSigningMethod: jwt.Algorithm(jwt.HS256),
+		PostgresUrl:      postgresUrl,
+		RabbitmqUrl:      rabbitMQUrl,
+		MinioKey:         minioKey,
+		MinioSecret:      minioSecret,
+		Port:             port,
+	}
+	err := config.Validate()
+	if err != nil {
+		log.Fatal(err.Error())
+		return nil
+	}
+
+	//run app setup
 	app.runAppSetup(config)
 	return &app
 }
 func (app *App) Run() {
-	log.Printf("listening on port %s", "8080")
-	log.Fatal(http.ListenAndServe(":8080", app.srv.router))
+	//start server
+	log.Printf("listening on port %s", app.srv.port)
+	log.Fatal(http.ListenAndServe(app.srv.port, app.srv.router))
 }
 
-func (app *App) runAppSetup(config Config) {
-	db, err := sql.Open("postgres", config.dsn)
+func (app *App) runAppSetup(config models.Config) {
+	// init request handler
+	h, err := handler.NewHandler(config)
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
-	minioClient, err := minio.New("minio:9000", config.minioKey, config.minioSecret, false)
-	if err != nil {
-		log.Fatal(err)
-	}
-	queries := userImages.New(db)
-	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
-	h := &handler.Handler{TokenManager: tokenManger, UserImageDB: queries, MinioClient: minioClient}
-	app.srv.router = SetupRouter(h, tokenManger)
-	app.pgDb = db
-	app.tokenManager = tokenManger
-	app.srv.handler = h
-	//start workers for recieving rabbitmq messages
-	rabbitMQConn := connectToRabbitMQ(config.rabbitmqUrl)
-	for i := 0; i < 10; i++ {
-		go ListenForMessages(&config, minioClient, rabbitMQConn)
-	}
+
+	//init app router
+	app.srv.router = SetupRouter(h)
+	app.srv.port = config.Port
+
+	//init async rabbitmq worker
+	rabbitmq_broker.RunRabbitBroker(config)
+	rpc_broker.RunRpcServer(h.UserImageDB, h.MinioClient)
 }
 
-func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -84,60 +86,8 @@ func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
-	router.Use(tm.VerifyJwtToken)
+	router.Use(h.TokenManager.VerifyJwtToken)
 	router.Post("/image", h.UploadImage)
 	router.Get("/image/{imageId}", h.GetImage)
 	return router
-}
-func ListenForMessages(config *Config, m *minio.Client, conn *amqp.Connection) {
-
-	channel, err := conn.Channel()
-	if err != nil {
-		return
-	}
-	err = channel.Qos(1, 0, false)
-	if err != nil {
-		return
-	}
-	messages, err := channel.Consume("image-service", "", false, false, false, false, nil)
-	if err != nil {
-		return
-	}
-	var forever chan struct{}
-
-	for d := range messages {
-		switch messageType := d.RoutingKey; messageType {
-		case "delete":
-			imageId, ok := d.Headers["imageId"].(string)
-			if !ok {
-				log.Println("image id invalid")
-				return
-			}
-			err := helpers.DeleteFromS3(m, imageId)
-			if err != nil {
-				log.Println(err)
-				d.Ack(false)
-				return
-			}
-		default:
-			log.Println("no case" + messageType)
-		}
-		d.Ack(true)
-	}
-	<-forever
-}
-
-func connectToRabbitMQ(rabbitUrl string) *amqp.Connection {
-	backOff := time.Second * 5
-	for {
-		conn, err := amqp.Dial(rabbitUrl)
-		if err != nil {
-			log.Println("Connection not ready backing off for ", backOff)
-			time.Sleep(backOff)
-			backOff = backOff + (time.Second * 5)
-		} else {
-			log.Println("Connected to rabbit ")
-			return conn
-		}
-	}
 }

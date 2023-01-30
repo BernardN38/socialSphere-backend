@@ -1,72 +1,75 @@
 package application
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/bernardn38/socialsphere/post-service/handler"
-	"github.com/bernardn38/socialsphere/post-service/imageServiceBroker"
-	"github.com/bernardn38/socialsphere/post-service/sql/post"
-	"github.com/bernardn38/socialsphere/post-service/token"
+	"github.com/bernardn38/socialsphere/post-service/models"
 	"github.com/cristalhq/jwt/v4"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type Config struct {
-	jwtSecretKey     string
-	jwtSigningMethod jwt.Algorithm
-	dsn              string
-	rabbitmqUrl      string
-}
 type App struct {
-	srv          server
-	pgDb         *sql.DB
-	tokenManager *token.Manager
+	srv server
 }
 
 type server struct {
-	router  *chi.Mux
-	handler *handler.Handler
+	router *chi.Mux
+	port   string
 }
 
 func New() *App {
 	app := App{}
-	dsn := os.Getenv("DSN")
-	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.HS256, dsn: dsn, rabbitmqUrl: "amqp://guest:guest@rabbitmq"}
+
+	//get configuration from enviroment and validate
+	postgresUrl := os.Getenv("DSN")
+	jwtSecret := os.Getenv("jwtSecret")
+	rabbitMQUrl := os.Getenv("rabbitMQUrl")
+	minioKey := os.Getenv("minioKey")
+	minioSecret := os.Getenv("minioSecret")
+	port := os.Getenv("port")
+	config := models.Config{
+		JwtSecretKey:     jwtSecret,
+		JwtSigningMethod: jwt.Algorithm(jwt.HS256),
+		PostgresUrl:      postgresUrl,
+		RabbitmqUrl:      rabbitMQUrl,
+		MinioKey:         minioKey,
+		MinioSecret:      minioSecret,
+		Port:             port,
+	}
+	err := config.Validate()
+	if err != nil {
+		log.Fatal(err.Error())
+		return nil
+	}
+
+	//run app setup
 	app.runAppSetup(config)
 	return &app
 }
 func (app *App) Run() {
-	log.Printf("listening on port %s", "8080")
-	log.Fatal(http.ListenAndServe(":8080", app.srv.router))
+	//start server
+	log.Printf("listening on port %s", app.srv.port)
+	log.Fatal(http.ListenAndServe(app.srv.port, app.srv.router))
 }
 
-func (app *App) runAppSetup(config Config) {
-	db, err := sql.Open("postgres", config.dsn)
+func (app *App) runAppSetup(config models.Config) {
+	// init request handler
+	h, err := handler.NewHandler(config)
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
-	queries := post.New(db)
-	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
 
-	conn := connectToRabbitMQ(config.rabbitmqUrl)
-
-	emitter, _ := imageServiceBroker.NewEventEmitter(conn)
-	h := &handler.Handler{PostDb: queries, TokenManager: tokenManger, Emitter: &emitter}
-
-	app.srv.router = SetupRouter(h, tokenManger)
-	app.pgDb = db
-	app.tokenManager = tokenManger
-	app.srv.handler = h
+	//init app router
+	app.srv.router = SetupRouter(h)
+	app.srv.port = config.Port
 }
-
-func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -76,7 +79,7 @@ func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
-	router.Use(tm.VerifyJwtToken)
+	router.Use(h.TokenManager.VerifyJwtToken)
 	router.Post("/posts", h.CreatePost)
 	router.Get("/users/{userId}/posts", h.GetPostsPageByUserId)
 	router.Get("/posts/{postId}", h.GetPost)
@@ -88,19 +91,4 @@ func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router.Post("/posts/{postId}/comments", h.CreateComment)
 	router.Get("/posts/{postId}/comments", h.GetAllPostComments)
 	return router
-}
-
-func connectToRabbitMQ(rabbitUrl string) *amqp.Connection {
-	backOff := time.Second * 5
-	for {
-		conn, err := amqp.Dial(rabbitUrl)
-		if err != nil {
-			log.Println("Connection not ready backing off for:", backOff)
-			time.Sleep(backOff)
-			backOff = backOff + (time.Second * 5)
-		} else {
-			log.Println("Connected to rabbit ")
-			return conn
-		}
-	}
 }

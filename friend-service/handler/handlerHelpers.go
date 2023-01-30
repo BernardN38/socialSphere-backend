@@ -20,12 +20,12 @@ func CreateUser(usersDb *users.Queries, form *UserForm) (int32, error) {
 		FirstName: form.FirstName,
 		LastName:  form.LastName,
 	}
-	createdUser, err := usersDb.CreateUser(context.Background(), user)
+	createdUserId, err := usersDb.CreateUser(context.Background(), user)
 	if err != nil {
 		log.Println(err)
 		return 0, err
 	}
-	return createdUser.ID, nil
+	return createdUserId, nil
 }
 
 func ValidateUserForm(reqBody []byte) (UserForm, error) {

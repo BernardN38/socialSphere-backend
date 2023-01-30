@@ -6,7 +6,7 @@ package users
 
 import ()
 
-type Friendship struct {
+type Follow struct {
 	ID      int32
 	FriendA int32
 	FriendB int32

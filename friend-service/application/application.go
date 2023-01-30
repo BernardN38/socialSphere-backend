@@ -5,17 +5,16 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/bernardn38/socialsphere/friend-service/handler"
-	rpcreceiver "github.com/bernardn38/socialsphere/friend-service/rpc_receiver"
-	"github.com/bernardn38/socialsphere/friend-service/sql/users"
+	"github.com/bernardn38/socialsphere/friend-service/models"
+	"github.com/bernardn38/socialsphere/friend-service/rabbitmq_broker"
+	"github.com/bernardn38/socialsphere/friend-service/rpc_broker"
 	"github.com/bernardn38/socialsphere/friend-service/token"
 	"github.com/cristalhq/jwt/v4"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Config struct {
@@ -31,46 +30,58 @@ type App struct {
 }
 
 type server struct {
-	router  *chi.Mux
-	handler *handler.Handler
+	router *chi.Mux
+	port   string
 }
 
 func New() *App {
 	app := App{}
-	dsn := os.Getenv("DSN")
-	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.HS256, dsn: dsn, rabbitmqUrl: "amqp://guest:guest@rabbitmq"}
+
+	//get configuration from enviroment and validate
+	postgresUrl := os.Getenv("DSN")
+	jwtSecret := os.Getenv("jwtSecret")
+	rabbitMQUrl := os.Getenv("rabbitMQUrl")
+	port := os.Getenv("port")
+	config := models.Config{
+		JwtSecretKey:     jwtSecret,
+		JwtSigningMethod: jwt.Algorithm(jwt.HS256),
+		PostgresUrl:      postgresUrl,
+		RabbitmqUrl:      rabbitMQUrl,
+		Port:             port,
+	}
+	err := config.Validate()
+	if err != nil {
+		log.Fatal(err.Error())
+		return nil
+	}
+
+	//run app setup
 	app.runAppSetup(config)
 	return &app
 }
 func (app *App) Run() {
-	log.Printf("listening on port %s", "8080")
-	log.Fatal(http.ListenAndServe(":8080", app.srv.router))
+	//start server
+	log.Printf("listening on port %s", app.srv.port)
+	log.Fatal(http.ListenAndServe(app.srv.port, app.srv.router))
 }
 
-func (app *App) runAppSetup(config Config) {
-	db, err := sql.Open("postgres", config.dsn)
+func (app *App) runAppSetup(config models.Config) {
+	// init request handler
+	h, err := handler.NewHandler(config)
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
 
-	queries := users.New(db)
-	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
-	h := &handler.Handler{UsersDb: queries, TokenManager: tokenManger}
+	//init app router
+	app.srv.router = SetupRouter(h)
+	app.srv.port = config.Port
 
-	app.srv.router = SetupRouter(h, tokenManger)
-	app.pgDb = db
-	app.tokenManager = tokenManger
-	app.srv.handler = h
-	//start workers for recieving rabbitmq messages
-	rabbitMQConn := connectToRabbitMQ(config.rabbitmqUrl)
-	for i := 0; i < 10; i++ {
-		go ListenForMessages(&config, rabbitMQConn)
-	}
-	rpcReceiver := rpcreceiver.NewRpcReceiver(queries)
-	go rpcReceiver.ListenForRpc()
+	//init async rabbitmq and rpc workers
+	rpc_broker.RunRpcServer(h.UsersDb)
+	rabbitmq_broker.RunRabbitBroker(config, h.UsersDb)
 }
-
-func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -80,50 +91,10 @@ func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
-	router.Use(tm.VerifyJwtToken)
+	router.Use(h.TokenManager.VerifyJwtToken)
 	router.Get("/friends/find", h.FindFriends)
+	router.Get("/friends/{friendId}/follow", h.CheckFollow)
 	router.Post("/friends", h.CreateUser)
-	router.Post("/friends/friendships/{friendId}", h.CreateFriendship)
+	router.Post("/friends/{friendId}/follow", h.CreateFollow)
 	return router
-}
-
-func ListenForMessages(config *Config, conn *amqp.Connection) {
-	channel, err := conn.Channel()
-	if err != nil {
-		return
-	}
-	err = channel.Qos(1, 0, false)
-	if err != nil {
-		return
-	}
-	messages, err := channel.Consume("friend-service", "", false, false, false, false, nil)
-	if err != nil {
-		return
-	}
-	var forever chan struct{}
-
-	for d := range messages {
-		switch messageType := d.RoutingKey; messageType {
-		case "createUser":
-			log.Println(d.Body)
-		default:
-			log.Println("no case" + messageType)
-		}
-		d.Ack(true)
-	}
-	<-forever
-}
-
-func connectToRabbitMQ(rabbitUrl string) *amqp.Connection {
-	backOff := time.Second * 5
-	for {
-		conn, err := amqp.Dial(rabbitUrl)
-		if err != nil {
-			time.Sleep(backOff)
-			backOff = backOff + (time.Second * 5)
-		} else {
-			log.Println("Successfully connected to rabbitmq")
-			return conn
-		}
-	}
 }

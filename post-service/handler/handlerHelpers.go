@@ -1,20 +1,18 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
 	"log"
-	"mime/multipart"
 	"strconv"
 
+	"github.com/bernardn38/socialsphere/post-service/models"
 	"github.com/google/uuid"
 	"gopkg.in/go-playground/validator.v9"
 )
 
-func ValidatePostForm(reqBody []byte) (*Post, error) {
-	var form Post
+func ValidatePostForm(reqBody []byte) (*models.Post, error) {
+	var form models.Post
 	err := json.Unmarshal(reqBody, &form)
 	if err != nil {
 		return nil, err
@@ -58,13 +56,17 @@ func ValidatePagination(pageSize string, pageNo string) (int32, int32, error) {
 	return int32(parsedPageSize), int32(offset), nil
 }
 
-func SendImageToQueue(file multipart.File, h *Handler, routingKey string, imageId uuid.UUID, contentType string) error {
-	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, file); err != nil {
-		log.Println(err)
+func SendImageToQueue(h *Handler, routingKey string, imageId uuid.UUID, contentType string) error {
+	message := map[string]string{
+		"imageId":     imageId.String(),
+		"contentType": contentType,
 	}
-	// err := h.Emitter.Push(buf.Bytes(), "image-service", imageId.String())
-	err := h.Emitter.Push(buf.Bytes(), "image-service", routingKey, imageId.String(), contentType)
+	jsonMessage, err := json.Marshal(message)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	err = h.RabbitMQEmitter.PushImage(jsonMessage, "image-service", routingKey)
 	if err != nil {
 		log.Println(err)
 		return err
@@ -73,7 +75,7 @@ func SendImageToQueue(file multipart.File, h *Handler, routingKey string, imageI
 }
 
 func SendDeleteToQueue(routingKey string, imageId uuid.UUID, h *Handler) error {
-	err := h.Emitter.Push(nil, "image-service", routingKey, imageId.String(), "")
+	err := h.RabbitMQEmitter.PushImage(nil, "image-service", routingKey)
 	if err != nil {
 		return err
 	}

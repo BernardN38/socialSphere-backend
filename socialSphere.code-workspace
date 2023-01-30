@@ -35,6 +35,9 @@
 		},
 		{
 			"path": "friend-service"
+		},
+		{
+			"path": "init-scipts"
 		}
 	],
 	"settings": {

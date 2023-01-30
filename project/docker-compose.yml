@@ -113,6 +113,8 @@ services:
         DSN: "user=bernardn password=password host=postgres dbname=post_service port=5432 sslmode=disable"
         jwtSecret: "superSecretKey"
         rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+        minioKey: minio
+        minioSecret: minio123
         port: ":8080"
 
   image-service:

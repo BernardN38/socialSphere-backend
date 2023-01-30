@@ -8,7 +8,7 @@ CREATE TABLE users
     last_name  text NOT NULL
 );
 
-CREATE TABLE friendships
+CREATE TABLE follow
 (
     id         serial PRIMARY KEY,
     friend_a int NOT NULL REFERENCES users(id),

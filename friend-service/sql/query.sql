@@ -3,6 +3,11 @@ SELECT *
 FROM users
 WHERE id = $1 LIMIT 1;
 
+-- name: GetFollowByFriendA :one
+SELECT *
+FROM users
+WHERE id = $1 LIMIT 1;
+
 -- name: GetUserByUsername :one
 SELECT *
 FROM users
@@ -35,11 +40,14 @@ ORDER BY id;
 
 -- name: CreateUser :one
 INSERT INTO users(user_id, username, email, first_name, last_name)
-VALUES ($1, $2, $3, $4, $5) RETURNING *;
+VALUES ($1, $2, $3, $4, $5) RETURNING user_id;
 
--- name: CreateFriendship :one
-INSERT INTO friendships(friend_a, friend_b)
+-- name: CreateFollow :exec
+INSERT INTO follow(friend_a, friend_b)
 VALUES ($1, $2) RETURNING *;
+
+-- name: CheckFollow :one
+SELECT exists( select 1 FROM follow WHERE friend_a = $1 AND friend_b = $2);
 
 -- name: DeleteUser :exec
 DELETE

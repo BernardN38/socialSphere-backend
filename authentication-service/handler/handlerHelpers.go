@@ -8,12 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bernardn38/socialsphere/authentication-service/models"
+	rabbitmqBroker "github.com/bernardn38/socialsphere/authentication-service/rabbitmq_broker"
+	rpcemitter "github.com/bernardn38/socialsphere/authentication-service/rpc_broker"
 	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
 	"github.com/cristalhq/jwt/v4"
-	"gopkg.in/go-playground/validator.v9"
 )
 
-func CreateUser(usersDb *users.Queries, form *RegisterForm) (int32, error) {
+func CreateUser(usersDb *users.Queries, form models.RegisterForm) (int32, error) {
 	user := users.CreateUserParams{
 		Username:  form.Username,
 		Password:  form.Password,
@@ -29,36 +31,24 @@ func CreateUser(usersDb *users.Queries, form *RegisterForm) (int32, error) {
 	return createdUser.ID, nil
 }
 
-func ValidateRegisterForm(reqBody []byte) (*RegisterForm, error) {
-	var form RegisterForm
-	err := json.Unmarshal(reqBody, &form)
-	if err != nil {
-		return nil, err
+func SendRpcCreateUser(rpcEmitter *rpcemitter.RpcClient, rabbitmqEmitter *rabbitmqBroker.RabbitMQEmitter, form models.RegisterForm, userId int32) {
+	user := rpcemitter.CreateUserParams{
+		FirstName: form.FirstName,
+		LastName:  form.LastName,
+		UserId:    int32(userId),
+		Username:  form.Username,
+		Email:     form.Email,
 	}
-
-	v := validator.New()
-	err = v.Struct(form)
-	if err != nil {
-		return nil, err
+	err1 := rpcEmitter.CreateIdentityServiceUser(user)
+	err2 := rpcEmitter.CreateFriendServiceUser(user)
+	if err1 != nil || err2 != nil {
+		log.Println(err1, err2)
+		userJson, err := json.Marshal(user)
+		if err != nil {
+			log.Println(err)
+		}
+		rabbitmqEmitter.Push(userJson, "createUser", "application/json")
 	}
-
-	return &form, nil
-}
-
-func ValidateLoginForm(reqBody []byte) (*LoginForm, error) {
-	var form LoginForm
-	err := json.Unmarshal(reqBody, &form)
-	if err != nil {
-		return nil, err
-	}
-
-	v := validator.New()
-	err = v.Struct(form)
-	if err != nil {
-		return nil, err
-	}
-
-	return &form, nil
 }
 
 func CheckForValidCookie(r *http.Request, h *Handler) (*jwt.RegisteredClaims, bool) {

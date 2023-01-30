@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 )
 
-const createUser = `-- name: CreateUser :one
+const createUser = `-- name: CreateUser :exec
 INSERT INTO users(id, username, email, first_name, last_name)
-VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email, first_name, last_name
+VALUES ($1, $2, $3, $4, $5)
 `
 
 type CreateUserParams struct {
@@ -24,23 +24,15 @@ type CreateUserParams struct {
 	LastName  string
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser,
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
+	_, err := q.db.ExecContext(ctx, createUser,
 		arg.ID,
 		arg.Username,
 		arg.Email,
 		arg.FirstName,
 		arg.LastName,
 	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Username,
-		&i.Email,
-		&i.FirstName,
-		&i.LastName,
-	)
-	return i, err
+	return err
 }
 
 const createUserProfileImage = `-- name: CreateUserProfileImage :exec

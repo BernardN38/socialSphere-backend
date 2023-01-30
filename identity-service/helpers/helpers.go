@@ -8,22 +8,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bernardn38/socialsphere/identity-service/models"
 	"github.com/go-chi/chi/v5"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type JsonResponse struct {
-	Msg       string      `json:"msg,omitempty"`
-	Data      interface{} `json:"data,omitempty"`
-	Timestamp time.Time   `json:"timestamp,omitempty"`
-}
-
-type PageResponse struct {
-	Page     interface{} `json:"page"`
-	PageSize int         `json:"pageSize"`
-	PageNo   int32       `json:"pageNo"`
-}
-
-func ResponseWithJson(w http.ResponseWriter, statusCode int, payload JsonResponse) {
+func ResponseWithJson(w http.ResponseWriter, statusCode int, payload models.JsonResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	jsonData, err := json.Marshal(payload)
@@ -86,4 +76,19 @@ func GetUserIdFromRequest(r *http.Request, checkContext bool) (int32, error) {
 	}
 	return userId, nil
 
+}
+
+func ConnectToRabbitMQ(rabbitUrl string) *amqp.Connection {
+	backOff := time.Second * 5
+	for {
+		conn, err := amqp.Dial(rabbitUrl)
+		if err != nil {
+			log.Println("Connection not ready backing off for ", backOff)
+			time.Sleep(backOff)
+			backOff = backOff + (time.Second * 5)
+		} else {
+			log.Println("Connected to rabbit ")
+			return conn
+		}
+	}
 }

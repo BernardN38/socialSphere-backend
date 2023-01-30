@@ -9,26 +9,40 @@ import (
 	"context"
 )
 
-const createFriendship = `-- name: CreateFriendship :one
-INSERT INTO friendships(friend_a, friend_b)
-VALUES ($1, $2) RETURNING id, friend_a, friend_b
+const checkFollow = `-- name: CheckFollow :one
+SELECT exists( select 1 FROM follow WHERE friend_a = $1 AND friend_b = $2)
 `
 
-type CreateFriendshipParams struct {
+type CheckFollowParams struct {
 	FriendA int32
 	FriendB int32
 }
 
-func (q *Queries) CreateFriendship(ctx context.Context, arg CreateFriendshipParams) (Friendship, error) {
-	row := q.db.QueryRowContext(ctx, createFriendship, arg.FriendA, arg.FriendB)
-	var i Friendship
-	err := row.Scan(&i.ID, &i.FriendA, &i.FriendB)
-	return i, err
+func (q *Queries) CheckFollow(ctx context.Context, arg CheckFollowParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, checkFollow, arg.FriendA, arg.FriendB)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const createFollow = `-- name: CreateFollow :exec
+INSERT INTO follow(friend_a, friend_b)
+VALUES ($1, $2) RETURNING id, friend_a, friend_b
+`
+
+type CreateFollowParams struct {
+	FriendA int32
+	FriendB int32
+}
+
+func (q *Queries) CreateFollow(ctx context.Context, arg CreateFollowParams) error {
+	_, err := q.db.ExecContext(ctx, createFollow, arg.FriendA, arg.FriendB)
+	return err
 }
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users(user_id, username, email, first_name, last_name)
-VALUES ($1, $2, $3, $4, $5) RETURNING id, user_id, username, email, first_name, last_name
+VALUES ($1, $2, $3, $4, $5) RETURNING user_id
 `
 
 type CreateUserParams struct {
@@ -39,7 +53,7 @@ type CreateUserParams struct {
 	LastName  string
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (int32, error) {
 	row := q.db.QueryRowContext(ctx, createUser,
 		arg.UserID,
 		arg.Username,
@@ -47,16 +61,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.FirstName,
 		arg.LastName,
 	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Username,
-		&i.Email,
-		&i.FirstName,
-		&i.LastName,
-	)
-	return i, err
+	var user_id int32
+	err := row.Scan(&user_id)
+	return user_id, err
 }
 
 const deleteUser = `-- name: DeleteUser :exec
@@ -68,6 +75,26 @@ WHERE id = $1
 func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
 	_, err := q.db.ExecContext(ctx, deleteUser, id)
 	return err
+}
+
+const getFollowByFriendA = `-- name: GetFollowByFriendA :one
+SELECT id, user_id, username, email, first_name, last_name
+FROM users
+WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetFollowByFriendA(ctx context.Context, id int32) (User, error) {
+	row := q.db.QueryRowContext(ctx, getFollowByFriendA, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Username,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+	)
+	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one

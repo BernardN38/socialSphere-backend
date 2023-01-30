@@ -19,9 +19,9 @@ SELECT *
 FROM users
 ORDER BY id;
 
--- name: CreateUser :one
+-- name: CreateUser :exec
 INSERT INTO users(id, username, email, first_name, last_name)
-VALUES ($1, $2, $3, $4, $5) RETURNING *;
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: DeleteUser :exec
 DELETE

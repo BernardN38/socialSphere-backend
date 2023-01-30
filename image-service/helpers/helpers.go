@@ -5,24 +5,12 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"time"
 
+	"github.com/bernardn38/socialsphere/image-service/models"
 	"github.com/minio/minio-go"
 )
 
-type JsonResponse struct {
-	Msg       string      `json:"msg,omitempty"`
-	Data      interface{} `json:"data,omitempty"`
-	Timestamp time.Time   `json:"timestamp,omitempty"`
-}
-
-type PageResponse struct {
-	Page     interface{} `json:"page"`
-	PageSize int         `json:"pageSize"`
-	PageNo   int32       `json:"pageNo"`
-}
-
-func ResponseWithJson(w http.ResponseWriter, statusCode int, payload JsonResponse) {
+func ResponseWithJson(w http.ResponseWriter, statusCode int, payload models.JsonResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	jsonData, err := json.Marshal(payload)

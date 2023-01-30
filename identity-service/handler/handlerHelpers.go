@@ -1,39 +1,25 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
 	"log"
-	"mime/multipart"
 
 	"github.com/google/uuid"
-	"gopkg.in/go-playground/validator.v9"
 )
 
-func ValidatePostForm(reqBody []byte) (*Post, error) {
-	var form Post
-	err := json.Unmarshal(reqBody, &form)
-	if err != nil {
-		return nil, err
+func SendImageToQueue(h *Handler, routingKey string, imageId uuid.UUID, contentType string) error {
+	message := map[string]string{
+		"imageId":     imageId.String(),
+		"contentType": contentType,
 	}
-
-	v := validator.New()
-	err = v.Struct(form)
+	jsonMessage, err := json.Marshal(message)
 	if err != nil {
-		return nil, err
-	}
-
-	return &form, nil
-}
-
-func SendImageToQueue(file multipart.File, h *Handler, imageId uuid.UUID, contentType string) error {
-	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, file); err != nil {
 		log.Println(err)
+		return err
 	}
-	err := h.Emitter.Push(buf.Bytes(), "image-proccessing", imageId.String(), contentType)
+	err = h.Emitter.PushImage(jsonMessage, "image-service", routingKey)
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 	return nil

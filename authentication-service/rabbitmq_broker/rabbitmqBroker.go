@@ -1,34 +1,28 @@
-package rabbitmqBroker
+package rabbitmq_broker
 
 import (
 	"context"
 	"log"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type RabbitMQEmitter struct {
 	connection *amqp.Connection
-	channel    *amqp.Channel
 }
 
 func (e *RabbitMQEmitter) setup() error {
-	channel, err := e.connection.Channel()
-	if err != nil {
-		return err
-	}
-	e.channel = channel
-	defer channel.Close()
 	return nil
 }
 
-func (e *RabbitMQEmitter) Push(event []byte, queue string, routingKey string, imageId string, contentType string) error {
+func (e *RabbitMQEmitter) Push(event []byte, routingKey string, contentType string) error {
 	channel, err := e.connection.Channel()
 	if err != nil {
 		return err
 	}
-	err = channel.PublishWithContext(context.Background(), "image-service", routingKey, false, false, amqp.Publishing{
-		DeliveryMode: amqp.Persistent, ContentType: "multipart", Body: event, Headers: map[string]interface{}{"imageId": imageId, "contentType": contentType},
+	err = channel.PublishWithContext(context.Background(), "authentication-service", routingKey, false, false, amqp.Publishing{
+		DeliveryMode: amqp.Persistent, ContentType: contentType, Body: event,
 	})
 	if err != nil {
 		return err
@@ -53,13 +47,24 @@ func (e *RabbitMQEmitter) PushDelete(key string) error {
 	}
 	return nil
 }
-func NewEventEmitter(conn *amqp.Connection) (RabbitMQEmitter, error) {
+func NewEventEmitter(conn *amqp.Connection) *RabbitMQEmitter {
 	emitter := RabbitMQEmitter{
 		connection: conn,
 	}
-	err := emitter.setup()
-	if err != nil {
-		return RabbitMQEmitter{}, err
+	return &emitter
+}
+
+func ConnectToRabbitMQ(rabbitUrl string) *amqp.Connection {
+	backOff := time.Second * 5
+	for {
+		conn, err := amqp.Dial(rabbitUrl)
+		if err != nil {
+			log.Println("Connection not ready backing off for ", backOff)
+			time.Sleep(backOff)
+			backOff = backOff + (time.Second * 5)
+		} else {
+			log.Println("Connected to rabbit ")
+			return conn
+		}
 	}
-	return emitter, nil
 }

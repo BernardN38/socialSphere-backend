@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -12,34 +13,52 @@ import (
 	"time"
 
 	"github.com/bernardn38/socialsphere/post-service/helpers"
-	"github.com/bernardn38/socialsphere/post-service/imageServiceBroker"
+	"github.com/bernardn38/socialsphere/post-service/models"
+	"github.com/bernardn38/socialsphere/post-service/rabbitmq_broker"
+	rpcbroker "github.com/bernardn38/socialsphere/post-service/rpc_broker"
 	"github.com/bernardn38/socialsphere/post-service/sql/post"
 	"github.com/bernardn38/socialsphere/post-service/token"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	pq "github.com/lib/pq"
+	"github.com/minio/minio-go"
 )
 
 type Handler struct {
-	PostDb       *post.Queries
-	TokenManager *token.Manager
-	Emitter      *imageServiceBroker.Emitter
+	PostDb          *post.Queries
+	TokenManager    *token.Manager
+	RabbitMQEmitter *rabbitmq_broker.RabbitMQEmitter
+	RpcClient       *rpcbroker.RpcClient
+	MinioClient     *minio.Client
 }
 
-type Post struct {
-	Body       string    `json:"body" validate:"required"`
-	Author     int       `json:"author" validate:"required"'`
-	AuthorName string    `json:"authorName" validate:"required"`
-	CreatedAt  time.Time `json:"created_at"`
-}
+func NewHandler(config models.Config) (*Handler, error) {
+	//open connection to postgres
+	db, err := sql.Open("postgres", config.PostgresUrl)
+	if err != nil {
+		return nil, err
+	}
 
-type CommentsResp struct {
-	Body      string    `json:"body"`
-	CommentId uuid.UUID `json:"comment_id"`
-}
-type PostLikes struct {
-	PostId    string `json:"postId"`
-	LikeCount int64  `json:"likeCount"`
+	// init sqlc post queries
+	queries := post.New(db)
+
+	//init jwt token manager
+	tokenManger := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
+
+	//init rabbitmq message emitter
+	rabbitConn := rabbitmq_broker.ConnectToRabbitMQ(config.RabbitmqUrl)
+	rabbitMQBroker, err := rabbitmq_broker.NewRabbitEventEmitter(rabbitConn)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	// connect to minio
+	minioClient, err := minio.New("minio:9000", config.MinioKey, config.MinioSecret, false)
+	if err != nil {
+		return nil, err
+	}
+	handler := Handler{PostDb: queries, TokenManager: tokenManger, RabbitMQEmitter: &rabbitMQBroker, RpcClient: &rpcbroker.RpcClient{}, MinioClient: minioClient}
+	return &handler, nil
 }
 
 func (h *Handler) GetLikeCount(w http.ResponseWriter, r *http.Request) {
@@ -55,21 +74,24 @@ func (h *Handler) GetLikeCount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	helpers.ResponseWithJson(w, 200, helpers.JsonResponse{Data: PostLikes{PostId: postId, LikeCount: likeCount}, Timestamp: time.Now()})
+	helpers.ResponseWithJson(w, 200, helpers.JsonResponse{Data: models.PostLikes{PostId: postId, LikeCount: likeCount}, Timestamp: time.Now()})
 }
 
 func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
+	//get user id from request
 	userId, err := helpers.GetUserIdFromRequest(r, true)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
+	//get username from jwt token
 	username, ok := r.Context().Value("username").(string)
 	if !ok {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
+	//get post id from url path
 	postId := chi.URLParam(r, "postId")
 	convertedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
@@ -77,28 +99,30 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
+	//ready comment body
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	var bodyJson map[string]interface{}
-	err = json.Unmarshal(bodyBytes, &bodyJson)
+
+	//unmarshal body to struct and validate
+	var commentForm models.CreateCommentForm
+	err = json.Unmarshal(bodyBytes, &commentForm)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-
-	commentBody, ok := bodyJson["body"].(string)
-	if !ok {
-		log.Println("could not parse comment body")
-		helpers.ResponseNoPayload(w, http.StatusBadRequest)
+	err = commentForm.Validate()
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "comment form invalid", http.StatusBadRequest)
 		return
 	}
 
-	createdComment, err := h.PostDb.CreateComment(context.Background(), post.CreateCommentParams{Body: commentBody, UserID: userId, AuthorName: username})
+	createdComment, err := h.PostDb.CreateComment(context.Background(), post.CreateCommentParams{Body: commentForm.Body, UserID: userId, AuthorName: username})
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, http.StatusInternalServerError)
@@ -118,6 +142,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetAllPostComments(w http.ResponseWriter, r *http.Request) {
+	//get post id from url and convert to int32
 	postId := chi.URLParam(r, "postId")
 	parsedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
@@ -131,6 +156,7 @@ func (h *Handler) GetAllPostComments(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusNotFound)
 		return
 	}
+	// convert to json then send to client
 	jsonResp, err := json.Marshal(postsComments)
 	if err != nil {
 		log.Println(err)
@@ -180,8 +206,24 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithPayload(w, 500, []byte(err.Error()))
 		return
 	}
+	buf := bytes.NewBuffer(nil)
+	if _, err := io.Copy(buf, file); err != nil {
+		log.Println(err)
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+
+	uploadImage := models.RpcImageUpload{
+		UserId:  convertedUserId,
+		Image:   buf.Bytes(),
+		ImageId: imageId.UUID,
+	}
 	if fileErr == nil {
-		err = SendImageToQueue(file, h, "image-proccessing", imageId.UUID, header.Header.Get("Content-Type"))
+		err := h.RpcClient.UploadImage(uploadImage)
+		if err != nil {
+			log.Println(err)
+		}
+		err = SendImageToQueue(h, "image-proccessing", imageId.UUID, header.Header.Get("Content-Type"))
 		log.Println(time.Now())
 		if err != nil {
 			log.Println(err)
@@ -196,6 +238,7 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
+	// get post id from url and convert to int32
 	postId := chi.URLParam(r, "postId")
 	convertedPostId, err := helpers.ConvertPostId(postId)
 	if err != nil {
@@ -286,7 +329,7 @@ func (h *Handler) DeletePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithJson(w, 500, helpers.JsonResponse{Msg: err.Error()})
 		return
 	}
-	h.Emitter.PushDelete(imageId.UUID.String())
+	h.RabbitMQEmitter.PushDelete(imageId.UUID.String())
 	helpers.ResponseNoPayload(w, 200)
 }
 func (h *Handler) CreatePostLike(w http.ResponseWriter, r *http.Request) {

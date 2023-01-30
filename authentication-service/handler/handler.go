@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -9,8 +11,9 @@ import (
 	"time"
 
 	"github.com/bernardn38/socialsphere/authentication-service/helpers"
+	"github.com/bernardn38/socialsphere/authentication-service/models"
 	rabbitmqBroker "github.com/bernardn38/socialsphere/authentication-service/rabbitmq_broker"
-	rpcemitter "github.com/bernardn38/socialsphere/authentication-service/rpc_emitter"
+	rpcemitter "github.com/bernardn38/socialsphere/authentication-service/rpc_broker"
 	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
 	"github.com/bernardn38/socialsphere/authentication-service/token"
 	"golang.org/x/crypto/bcrypt"
@@ -20,72 +23,94 @@ type Handler struct {
 	UsersDb         *users.Queries
 	TokenManager    *token.Manager
 	RabbitMQEmitter *rabbitmqBroker.RabbitMQEmitter
-	RpcEmitter      *rpcemitter.RpcEmitter
+	RpcEmitter      *rpcemitter.RpcClient
 }
-type RegisterForm struct {
-	Username  string `json:"username" validate:"required,min=2,max=100"`
-	Email     string `json:"email" validate:"required,email"`
-	Password  string `json:"password" validate:"required,min=8,max=128"`
-	FirstName string `json:"firstName" validate:"required"`
-	LastName  string `json:"lastName" validate:"required"`
-}
-type LoginForm struct {
-	Username string `json:"username" validate:"required"`
-	Password string `json:"password" validate:"required"`
+
+func NewHandler(config models.Config) (*Handler, error) {
+	//open connection to postgres
+	db, err := sql.Open("postgres", config.PostgresUrl)
+	if err != nil {
+		return nil, err
+	}
+	// init sqlc user queries
+	queries := users.New(db)
+
+	//init jwt token manager
+	tokenManger := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
+
+	//init rabbitmq message emitter
+	rabbitMQConn := rabbitmqBroker.ConnectToRabbitMQ(config.RabbitmqUrl)
+	emitter := rabbitmqBroker.NewEventEmitter(rabbitMQConn)
+
+	handler := Handler{UsersDb: queries, TokenManager: tokenManger, RabbitMQEmitter: emitter}
+	return &handler, nil
 }
 
 func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
-	reqBody, _ := io.ReadAll(r.Body)
-	form, err := ValidateRegisterForm(reqBody)
+	reqBody, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "", http.StatusBadRequest)
+		log.Println(err)
+		http.Error(w, "request body invalid", http.StatusBadRequest)
 		return
 	}
-	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(form.Password), 12)
+	var registerForm models.RegisterForm
+	err = json.Unmarshal(reqBody, &registerForm)
 	if err != nil {
-		http.Error(w, "", http.StatusUnauthorized)
+		log.Println(err)
+		http.Error(w, "request body invalid", http.StatusBadRequest)
+		return
+	}
+	err = registerForm.Validate()
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "register form invalid", http.StatusBadRequest)
+		return
+	}
+	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(registerForm.Password), 12)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
-	form.Password = string(encryptedPassword)
-	createdUserId, err := CreateUser(h.UsersDb, form)
+	registerForm.Password = string(encryptedPassword)
+	createdUserId, err := CreateUser(h.UsersDb, registerForm)
 	if err != nil {
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
-	user := rpcemitter.CreateUserParams{
-		FirstName: form.FirstName,
-		LastName:  form.LastName,
-		UserId:    int32(createdUserId),
-		Username:  form.Username,
-		Email:     form.Email,
-	}
-	err = h.RpcEmitter.CreateIdentityServiceUser(user)
-	if err != nil {
-		log.Println(err, "identity")
-	}
-	err = h.RpcEmitter.CreateFriendServiceUser(user)
-	if err != nil {
-		log.Println(err, "friends")
-	}
-	log.Println("Register successful username: ", form.Username)
+
+	SendRpcCreateUser(h.RpcEmitter, h.RabbitMQEmitter, registerForm, createdUserId)
+
+	log.Println("Register successful username: ", registerForm.Username)
 	helpers.ResponseWithPayload(w, 201, []byte(`Register Success`))
 }
 
 func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
-	reqBody, _ := io.ReadAll(r.Body)
-	form, err := ValidateLoginForm(reqBody)
+	reqBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "request body invalid", http.StatusBadRequest)
 		return
 	}
-	user, err := h.UsersDb.GetUserByUsername(context.Background(), form.Username)
+	var loginForm models.LoginForm
+	err = json.Unmarshal(reqBody, &loginForm)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "request body invalid", http.StatusBadRequest)
+		return
+	}
+	err = loginForm.Validate()
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "register form invalid", http.StatusBadRequest)
+		return
+	}
+	user, err := h.UsersDb.GetUserByUsername(context.Background(), loginForm.Username)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(form.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginForm.Password))
 	if err != nil {
 		http.Error(w, "", http.StatusUnauthorized)
 		return

@@ -47,9 +47,9 @@
       "internal": false,
       "arguments": {}
     }, {
-      "name": "user-service",
+      "name": "authentication-service",
       "vhost": "/",
-      "type": "direct",
+      "type": "fanout",
       "durable": true,
       "auto_delete": false,
       "internal": false,
@@ -82,7 +82,7 @@
       "arguments": {}
     },
     {
-      "source": "user-service",
+      "source": "authentication-service",
       "vhost": "/",
       "destination": "identity-service",
       "destination_type": "queue",
@@ -90,7 +90,7 @@
       "arguments": {}
     },
     {
-      "source": "user-service",
+      "source": "authentication-service",
       "vhost": "/",
       "destination": "friend-service",
       "destination_type": "queue",
