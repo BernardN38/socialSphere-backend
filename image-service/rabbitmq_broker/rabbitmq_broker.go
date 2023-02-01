@@ -1,6 +1,7 @@
 package rabbitmq_broker
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type Emitter struct {
+type RabbitMQEmitter struct {
 	connection *amqp.Connection
 }
 
@@ -25,7 +26,7 @@ func RunRabbitBroker(config models.Config) {
 		go ListenForMessages(&config, minioClient, rabbitMQConn)
 	}
 }
-func (e *Emitter) setup() error {
+func (e *RabbitMQEmitter) setup() error {
 	channel, err := e.connection.Channel()
 	if err != nil {
 		return err
@@ -34,17 +35,31 @@ func (e *Emitter) setup() error {
 	return nil
 }
 
-func NewEventEmitter(conn *amqp.Connection) (Emitter, error) {
-	emitter := Emitter{
+func NewRabbitEventEmitter(conn *amqp.Connection) (RabbitMQEmitter, error) {
+	emitter := RabbitMQEmitter{
 		connection: conn,
 	}
 	err := emitter.setup()
 	if err != nil {
-		return Emitter{}, err
+		return RabbitMQEmitter{}, err
 	}
 	return emitter, nil
 }
+func (e *RabbitMQEmitter) PushImage(event []byte, queue string, routingKey string) error {
+	channel, err := e.connection.Channel()
+	if err != nil {
+		return err
+	}
+	defer channel.Close()
+	err = channel.PublishWithContext(context.Background(), "image-service", routingKey, false, false, amqp.Publishing{
+		DeliveryMode: amqp.Persistent, ContentType: "multipart", Body: event,
+	})
+	if err != nil {
+		return err
+	}
 
+	return nil
+}
 func ListenForMessages(config *models.Config, m *minio.Client, conn *amqp.Connection) {
 
 	channel, err := conn.Channel()

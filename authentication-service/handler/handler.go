@@ -78,9 +78,12 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
-
-	SendRpcCreateUser(h.RpcEmitter, h.RabbitMQEmitter, registerForm, createdUserId)
-
+	err = SendRabbitMQCreateUser(h.RabbitMQEmitter, registerForm, createdUserId)
+	if err != nil {
+		log.Println(err)
+		rpcError := SendRpcCreateUser(h.RpcEmitter, h.RabbitMQEmitter, registerForm, createdUserId)
+		log.Println(rpcError)
+	}
 	log.Println("Register successful username: ", registerForm.Username)
 	helpers.ResponseWithPayload(w, 201, []byte(`Register Success`))
 }

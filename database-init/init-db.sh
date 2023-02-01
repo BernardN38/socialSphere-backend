@@ -8,6 +8,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   CREATE DATABASE $IMAGE_DB_NAME;
   CREATE DATABASE $IDENTITY_DB_NAME;
   CREATE DATABASE $FRIEND_DB_NAME;
+  CREATE DATABASE $NOTIFICATION_DB_NAME;
   GRANT ALL PRIVILEGES ON DATABASE $AUTH_DB_NAME TO $APP_DB_USER;
   GRANT ALL PRIVILEGES ON DATABASE $POST_DB_NAME TO $APP_DB_USER;
   \connect $AUTH_DB_NAME $APP_DB_USER
@@ -17,9 +18,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         id         serial PRIMARY KEY,
         username   text NOT NULL UNIQUE,
         email      text NOT NULL UNIQUE,
-        password   text NOT NULL,
-        first_name text NOT NULL,
-        last_name  text NOT NULL
+        password   text NOT NULL
     );
   COMMIT;
   \connect $IDENTITY_DB_NAME $APP_DB_USER
@@ -108,4 +107,5 @@ CREATE TABLE follow
                         created_at timestamp NOT NULL DEFAULT NOW()
     );
     COMMIT;
+    
 EOSQL

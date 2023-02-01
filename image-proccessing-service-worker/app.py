@@ -10,6 +10,7 @@ import threading
 from datetime import datetime
 from minio import Minio
 import json
+import pyheif
 
 minio_client = Minio('minio:9000',
                      access_key='minio',
@@ -26,52 +27,80 @@ def callback(ch, method, properties, body):
         guess = guess_extension(content_type)
         extension = guess.strip('.')
 
-        image = get_image_from_s3(image_id)
-        compress_and_upload_image(image, image_id, extension)
+        image_bytes = get_image_from_s3(image_id)
+        match extension:
+            case "jpg":
+                compress_upload_jpeg(image_bytes, image_id)
+            case "heif":
+                compress_convert_upload_heic(image_bytes, image_id)
+            case "png":
+                compress_upload_png(image_bytes,image_id)
+            case __:
+                print("extension not recognized", extension)
     except Exception as e:
         print("exception", e)
-    print('image proccessed',
-          datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
-def compress_and_upload_image(image, image_id, extension):
-    if extension == 'jpg':
-        extension = 'jpeg'
-    img_io = BytesIO()
-    print(image.width, image.height)
-    if image.width > 1920 or image.height > 1080:
-        new_width, new_height = 1920, 1080
-        aspect_ratio = image.width / image.height
-        if aspect_ratio > 1.777:  # check if aspect ratio is wider than 16:9
-            new_width = int(new_height * aspect_ratio)
-        else:
-            new_height = int(new_width / aspect_ratio)
-        # Resize the image
-        image = image.resize((new_width, new_height))
-    if extension == 'png':
-        # image = image.convert(mode='RGB')
-        image = image.quantize(colors=256, method=2)
-    image.save(img_io,
-               extension,
+def compress_upload_png(image_bytes,image_id):
+    image = Image.open(image_bytes)
+    out = BytesIO()
+    resized_image = resize_image(image)
+    resized_image.quantize(colors=256,method=2)
+    resized_image.save(out,
+               "png",
                optimize=True,
                quality=60)
-    img_io.seek(0)
-    upload_image_to_s3(img_io, image_id)
+    out.seek(0)
+    upload_image_to_s3(out, image_id)
+
+
+def compress_upload_jpeg(image_bytes, image_id):
+    image = Image.open(image_bytes)
+    out = BytesIO()
+    resized_image = resize_image(image)
+    resized_image.save(out,
+               "jpeg",
+               optimize=True,
+               quality=60)
+    out.seek(0)
+    upload_image_to_s3(out, image_id)
     return
 
+def compress_convert_upload_heic(image_bytes, image_id):
+    image = pyheif.read_heif(image_bytes)
+    out = BytesIO()
+    pi = Image.frombytes(mode=image.mode, size=image.size, data=image.data)
+    resized_image = resize_image(pi)
+    resized_image.save(out, format="jpeg", optimize=True, quality=60)
+    out.seek(0)
+    upload_image_to_s3(out, image_id)
+    return
+
+def resize_image(image):
+    if image.width > 1920 or image.height > 1080:
+            new_width, new_height = 1920, 1080
+            aspect_ratio = image.width / image.height
+            if aspect_ratio > 1.777:  # check if aspect ratio is wider than 16:9
+                new_width = int(new_height * aspect_ratio)
+            else:
+             new_height = int(new_width / aspect_ratio)
+            # Resize the image
+            image = image.resize((new_width, new_height))
+    return image
 
 def worker(queue_name):
     connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
     channel = connection.channel()
-    # channel.queue_declare(queue=queue_name)
+    channel.basic_qos(prefetch_count=2)
     channel.basic_consume(queue_name, callback, auto_ack=False)
     channel.start_consuming()
 
 
 def main():
     time.sleep(10)
-    for i in range(10):
+    for i in range(30):
         t = threading.Thread(target=worker, args=("image-proccessing-worker",))
         t.start()
     t.join()

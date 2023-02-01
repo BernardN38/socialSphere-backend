@@ -44,3 +44,20 @@ func (u *UserForm) Validate() error {
 	}
 	return nil
 }
+
+type AuthServiceCreateUserParams struct {
+	FirstName string `json:"firstName" validate:"required"`
+	LastName  string `json:"lastName" validate:"required"`
+	UserId    int32  `json:"userId" validate:"required"`
+	Username  string `json:"username" validate:"required"`
+	Email     string `json:"email" validate:"required"`
+}
+
+func (u *AuthServiceCreateUserParams) Validate() error {
+	validate := validator.New()
+	err := validate.Struct(u)
+	if err != nil {
+		return err
+	}
+	return nil
+}

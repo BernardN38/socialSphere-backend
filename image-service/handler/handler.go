@@ -10,6 +10,7 @@ import (
 
 	"github.com/bernardn38/socialsphere/image-service/helpers"
 	"github.com/bernardn38/socialsphere/image-service/models"
+	"github.com/bernardn38/socialsphere/image-service/rabbitmq_broker"
 	"github.com/bernardn38/socialsphere/image-service/sql/userImages"
 	"github.com/bernardn38/socialsphere/image-service/token"
 	"github.com/go-chi/chi/v5"
@@ -18,9 +19,10 @@ import (
 )
 
 type Handler struct {
-	TokenManager *token.Manager
-	UserImageDB  *userImages.Queries
-	MinioClient  *minio.Client
+	TokenManager    *token.Manager
+	UserImageDB     *userImages.Queries
+	RabbitMQEmitter *rabbitmq_broker.RabbitMQEmitter
+	MinioClient     *minio.Client
 }
 
 func NewHandler(config models.Config) (*Handler, error) {
@@ -38,7 +40,14 @@ func NewHandler(config models.Config) (*Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	handler := Handler{UserImageDB: queries, TokenManager: tokenManger, MinioClient: minioClient}
+	//init rabbitmq message emitter
+	rabbitConn := rabbitmq_broker.ConnectToRabbitMQ(config.RabbitmqUrl)
+	rabbitMQBroker, err := rabbitmq_broker.NewRabbitEventEmitter(rabbitConn)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	handler := Handler{UserImageDB: queries, TokenManager: tokenManger, RabbitMQEmitter: &rabbitMQBroker, MinioClient: minioClient}
 	return &handler, nil
 }
 
@@ -55,27 +64,34 @@ func (h *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	// Get header for filename, size and headers
 	file, header, err := r.FormFile("image")
 	if err != nil {
-		fmt.Println("Error Retrieving the File")
 		fmt.Println(err)
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
+	defer file.Close()
+
 	buf := bytes.NewBuffer(nil)
 	if _, err := io.Copy(buf, file); err != nil {
 		log.Println(err)
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
-	err = helpers.UploadToS3(h.MinioClient, buf.Bytes(), uuid.New().String())
+
+	imageId := uuid.New()
+	err = helpers.UploadToS3(h.MinioClient, buf.Bytes(), imageId.String())
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "Error uploading to", http.StatusInternalServerError)
 		return
 	}
-	defer file.Close()
+	err = SendImageToQueue(h, "image-proccessing", imageId, header.Header.Get("Content-Type"))
+	if err != nil {
+		log.Println(err)
+	}
 	fmt.Printf("Uploaded File: %+v\n", header.Filename)
 	fmt.Printf("File Size: %+v\n", header.Size)
 	fmt.Printf("MIME Header: %+v\n", header.Header)
-
+	// r.MultipartForm.RemoveAll()
 	helpers.ResponseNoPayload(w, 201)
 }
 

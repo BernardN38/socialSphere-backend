@@ -41,6 +41,7 @@ services:
       - IMAGE_DB_NAME=image_service
       - IDENTITY_DB_NAME=identity_service
       - FRIEND_DB_NAME=friend_service
+      - NOTIFICATION_DB_NAME=notification_service
     logging:
       options:
         max-size: 10m
@@ -171,3 +172,18 @@ services:
         jwtSecret: "superSecretKey"
         rabbitMQUrl: "amqp://guest:guest@rabbitmq"
         port: ":8080"
+
+  notification-service:
+    build:
+      context: ../notificationService
+      dockerfile: ./notification-service.dockerfile
+    ports:
+      - 8000:8000
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+        DSN: "user=bernardn password=password host=postgres dbname=postgres port=5432 sslmode=disable"
+        jwtSecret: "superSecretKey"
+        rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+        port: ":8000"

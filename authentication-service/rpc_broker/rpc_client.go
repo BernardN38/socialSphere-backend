@@ -3,19 +3,14 @@ package rpcbroker
 import (
 	"errors"
 	"net/rpc"
+
+	"github.com/bernardn38/socialsphere/authentication-service/models"
 )
 
 type RpcClient struct {
 }
-type CreateUserParams struct {
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	UserId    int32  `json:"userId"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-}
 
-func (r *RpcClient) CreateFriendServiceUser(createUserParams CreateUserParams) error {
+func (r *RpcClient) CreateFriendServiceUser(createUserParams models.CreateUserParams) error {
 	var reply bool
 	friendServiceConnection, err := rpc.Dial("tcp", "friend-service:9002")
 	if err != nil {
@@ -32,7 +27,7 @@ func (r *RpcClient) CreateFriendServiceUser(createUserParams CreateUserParams) e
 	return nil
 }
 
-func (r *RpcClient) CreateIdentityServiceUser(createUserParams CreateUserParams) error {
+func (r *RpcClient) CreateIdentityServiceUser(createUserParams models.CreateUserParams) error {
 	var reply bool
 	friendServiceConnection, err := rpc.Dial("tcp", "identity-service:9002")
 	if err != nil {

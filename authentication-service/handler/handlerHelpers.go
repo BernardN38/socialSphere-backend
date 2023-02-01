@@ -17,11 +17,9 @@ import (
 
 func CreateUser(usersDb *users.Queries, form models.RegisterForm) (int32, error) {
 	user := users.CreateUserParams{
-		Username:  form.Username,
-		Password:  form.Password,
-		Email:     form.Email,
-		FirstName: form.FirstName,
-		LastName:  form.LastName,
+		Username: form.Username,
+		Password: form.Password,
+		Email:    form.Email,
 	}
 	createdUser, err := usersDb.CreateUser(context.Background(), user)
 	if err != nil {
@@ -31,8 +29,8 @@ func CreateUser(usersDb *users.Queries, form models.RegisterForm) (int32, error)
 	return createdUser.ID, nil
 }
 
-func SendRpcCreateUser(rpcEmitter *rpcemitter.RpcClient, rabbitmqEmitter *rabbitmqBroker.RabbitMQEmitter, form models.RegisterForm, userId int32) {
-	user := rpcemitter.CreateUserParams{
+func SendRpcCreateUser(rpcEmitter *rpcemitter.RpcClient, rabbitmqEmitter *rabbitmqBroker.RabbitMQEmitter, form models.RegisterForm, userId int32) error {
+	user := models.CreateUserParams{
 		FirstName: form.FirstName,
 		LastName:  form.LastName,
 		UserId:    int32(userId),
@@ -42,13 +40,28 @@ func SendRpcCreateUser(rpcEmitter *rpcemitter.RpcClient, rabbitmqEmitter *rabbit
 	err1 := rpcEmitter.CreateIdentityServiceUser(user)
 	err2 := rpcEmitter.CreateFriendServiceUser(user)
 	if err1 != nil || err2 != nil {
-		log.Println(err1, err2)
-		userJson, err := json.Marshal(user)
-		if err != nil {
-			log.Println(err)
-		}
-		rabbitmqEmitter.Push(userJson, "createUser", "application/json")
+		return models.RpcCreateUserError{IdentityServiceError: err1, FriendServiceError: err2}
 	}
+	return nil
+}
+
+func SendRabbitMQCreateUser(rabbitMQEMitter *rabbitmqBroker.RabbitMQEmitter, form models.RegisterForm, userId int32) error {
+	user := models.CreateUserParams{
+		FirstName: form.FirstName,
+		LastName:  form.LastName,
+		UserId:    int32(userId),
+		Username:  form.Username,
+		Email:     form.Email,
+	}
+	jsonUser, err := json.Marshal(user)
+	if err != nil {
+		return err
+	}
+	err = rabbitMQEMitter.Push(jsonUser, "createUser", "application/json")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func CheckForValidCookie(r *http.Request, h *Handler) (*jwt.RegisteredClaims, bool) {

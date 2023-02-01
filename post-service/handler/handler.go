@@ -195,7 +195,9 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		imageId.UUID = uuid.New()
 		imageId.Valid = true
 	}
-
+	fmt.Printf("Uploaded File: %+v\n", header.Filename)
+	fmt.Printf("File Size: %+v\n", header.Size)
+	fmt.Printf("MIME Header: %+v\n", header.Header)
 	createdPost, err := h.PostDb.CreatePost(context.Background(), post.CreatePostParams{
 		Body:       body[0],
 		UserID:     convertedUserId,

@@ -12,7 +12,7 @@ up:
 	@echo "Docker images started!"
 
 ## up_build: stops docker-compose (if running), builds all projects and starts docker compose
-up_build: build_auth build_post build_image build_identity build_messaging build_image_proccessing_service_worker build_friend
+up_build: build_auth build_post build_image build_identity build_messaging build_image_proccessing_service_worker build_friend build_java
 	@echo "Stopping docker images (if running...)"
 	docker-compose down
 	@echo "Building (when required) and starting docker images..."
@@ -63,4 +63,9 @@ build_friend:
 build_image_proccessing_service_worker:
 	@echo "Building image_proccessing binary..."
 	cd ../image-proccessing-service-worker && docker build -t image-proccessing-service-worker -f image-proccessing-service-worker.dockerfile .
+	@echo "Done!"
+
+build_java:
+	@echo "Building image_proccessing binary..."
+	cd ../notificationService && mvn clean package
 	@echo "Done!"

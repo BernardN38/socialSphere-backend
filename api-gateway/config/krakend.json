@@ -283,7 +283,7 @@
       "endpoint": "/image",
       "output_encoding": "no-op",
       "method": "POST",
-      "timeout": "10000ms",
+      "timeout": "30000ms",
       "input_headers": [
         "User-Agent",
         "Accept",
@@ -412,6 +412,24 @@
           "url_pattern": "/friends",
           "host": [
             "http://friend-service:8080"
+          ]
+        }
+      ]
+    },{
+      "endpoint": "/java",
+      "output_encoding": "no-op",
+      "method": "GET",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/java",
+          "host": [
+            "http://notification-service:8080"
           ]
         }
       ]
