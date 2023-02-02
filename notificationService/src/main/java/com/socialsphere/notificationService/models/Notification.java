@@ -17,10 +17,11 @@ public class Notification {
     @Id
     @GeneratedValue(strategy=GenerationType.AUTO)
     private Long id;
+    private Long userId;
+    private String message;
+    private String type;
     @CreationTimestamp
     private Timestamp timestamp;
-    private String message;
-
     public Notification(String message) {
         this.message = message;
     }

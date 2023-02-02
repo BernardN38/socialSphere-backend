@@ -1,14 +1,20 @@
 package com.socialsphere.notificationService.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.*;
 
 import java.sql.Timestamp;
 
+@NoArgsConstructor
 @AllArgsConstructor
-@Data
+@Getter
+@Setter
 public class NotificationDto {
-    private Long id;
-    private Timestamp timestamp;
+    private Long userId;
     private String message;
+    private String type;
+    private Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+
+    public NotificationDto(String message) {
+        this.message = message;
+    }
 }

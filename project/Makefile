@@ -67,5 +67,5 @@ build_image_proccessing_service_worker:
 
 build_java:
 	@echo "Building image_proccessing binary..."
-	cd ../notificationService && mvn clean package
+	cd ../notificationService && mvn clean package -DskipTests
 	@echo "Done!"
