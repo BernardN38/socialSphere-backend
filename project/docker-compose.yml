@@ -1,32 +1,32 @@
 version: '3.8'
 
 services:
-  # krakend:
-  #   image: devopsfaith/krakend:2.0
-  #   volumes:
-  #     - "../api-gateway/config:/etc/krakend/"
-  #   ports:
-  #     - "1234:1234"
-  #     - "8080:8080"
-  #     - "8090:8090"
-  #   command: [ "run", "-d", "-c", "/etc/krakend/krakend.json" ]
+  krakend:
+    image: devopsfaith/krakend:2.0
+    volumes:
+      - "../api-gateway/config:/etc/krakend/"
+    ports:
+      - "1234:1234"
+      - "8080:8080"
+      - "8090:8090"
+    command: [ "run", "-d", "-c", "/etc/krakend/krakend.json" ]
 
-  # rabbitmq:
-  #   hostname: 'dev-rabbitmq'
-  #   image: 'rabbitmq:3-management'
-  #   ports:
-  #     - "5672:5672"
-  #     - "15672:15672"
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #     resources:
-  #       limits:
-  #         memory: 5072M
-  #   volumes:
-  #     - ../rabbit-init/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-  #     - ../rabbit-init/definitions.json:/etc/rabbitmq/definitions.json:ro
-  #     - ../db-data/rabbitmq:/var/lib/rabbitmq
+  rabbitmq:
+    hostname: 'dev-rabbitmq'
+    image: 'rabbitmq:3-management'
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          memory: 5072M
+    volumes:
+      - ../rabbit-init/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ../rabbit-init/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ../db-data/rabbitmq:/var/lib/rabbitmq
 
   postgres:
     image: postgres:14-alpine
@@ -64,114 +64,114 @@ services:
      - REDIS_REPLICATION_MODE=master
 
   
-  # minio:
-  #   image: minio/minio
-  #   command: server --address ":9000" --console-address ":9001" /data
-  #   ports:
-  #     - "9001:9001"
-  #   environment:
-  #     MINIO_ACCESS_KEY: minio
-  #     MINIO_SECRET_KEY: minio123
-  #   volumes:
-  #     - ${PWD}/minio-data:/data
+  minio:
+    image: minio/minio
+    command: server --address ":9000" --console-address ":9001" /data
+    ports:
+      - "9001:9001"
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    volumes:
+      - ${PWD}/minio-data:/data
 
-  # image-proccessing-service-worker:
-  #   build:
-  #     context: ../image-proccessing-service-worker
-  #     dockerfile: ./image-proccessing-service-worker.dockerfile
-  #   ports:
-  #     - "5001:5001" 
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
+  image-proccessing-service-worker:
+    build:
+      context: ../image-proccessing-service-worker
+      dockerfile: ./image-proccessing-service-worker.dockerfile
+    ports:
+      - "5001:5001" 
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
 
-  # authentication-service:
-  #   build:
-  #     context: ../authentication-service
-  #     dockerfile: ./authentication-service.dockerfile
-  #   ports:
-  #     - "9000:9000"
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #   environment:
-  #     DSN: "user=bernardn password=password host=postgres dbname=authentication_service port=5432 sslmode=disable"
-  #     jwtSecret: "superSecretKey"
-  #     rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-  #     port: ":8080"
+  authentication-service:
+    build:
+      context: ../authentication-service
+      dockerfile: ./authentication-service.dockerfile
+    ports:
+      - "9000:9000"
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      DSN: "user=bernardn password=password host=postgres dbname=authentication_service port=5432 sslmode=disable"
+      jwtSecret: "superSecretKey"
+      rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+      port: ":8080"
 
-  # post-service:
-  #     build:
-  #       context: ../post-service
-  #       dockerfile: ./post-service.dockerfile
-  #     restart: always
-  #     deploy:
-  #       mode: replicated
-  #       replicas: 1
-  #     environment:
-  #       DSN: "user=bernardn password=password host=postgres dbname=post_service port=5432 sslmode=disable"
-  #       jwtSecret: "superSecretKey"
-  #       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-  #       minioKey: minio
-  #       minioSecret: minio123
-  #       port: ":8080"
+  post-service:
+      build:
+        context: ../post-service
+        dockerfile: ./post-service.dockerfile
+      restart: always
+      deploy:
+        mode: replicated
+        replicas: 1
+      environment:
+        DSN: "user=bernardn password=password host=postgres dbname=post_service port=5432 sslmode=disable"
+        jwtSecret: "superSecretKey"
+        rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+        minioKey: minio
+        minioSecret: minio123
+        port: ":8080"
 
-  # image-service:
-  #   build:
-  #     context: ../image-service
-  #     dockerfile: ./image-service.dockerfile
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #   environment:
-  #     DSN: "user=bernardn password=password host=postgres dbname=image_service port=5432 sslmode=disable"
-  #     jwtSecret: "superSecretKey"
-  #     rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-  #     minioKey: minio
-  #     minioSecret: minio123
-  #     port: ":8080"
+  image-service:
+    build:
+      context: ../image-service
+      dockerfile: ./image-service.dockerfile
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      DSN: "user=bernardn password=password host=postgres dbname=image_service port=5432 sslmode=disable"
+      jwtSecret: "superSecretKey"
+      rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+      minioKey: minio
+      minioSecret: minio123
+      port: ":8080"
 
-  # identity-service:
-  #   build:
-  #     context: ../identity-service
-  #     dockerfile: ./identity-service.dockerfile
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #   environment:
-  #     DSN: "user=bernardn password=password host=postgres dbname=identity_service port=5432 sslmode=disable"
-  #     jwtSecret: "superSecretKey"
-  #     rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-  #     port: ":8080"
+  identity-service:
+    build:
+      context: ../identity-service
+      dockerfile: ./identity-service.dockerfile
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      DSN: "user=bernardn password=password host=postgres dbname=identity_service port=5432 sslmode=disable"
+      jwtSecret: "superSecretKey"
+      rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+      port: ":8080"
   
-  # messaging-service:
-  #   build: 
-  #     context: ../messaging-service
-  #     dockerfile: ./messaging-service.dockerfile
-  #   ports:
-  #     - "8081:8081"
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
+  messaging-service:
+    build: 
+      context: ../messaging-service
+      dockerfile: ./messaging-service.dockerfile
+    ports:
+      - "8081:8081"
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
 
-  # friend-service:
-  #   build: 
-  #     context: ../friend-service
-  #     dockerfile: ./friend-service.dockerfile
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #   environment:
-  #       DSN: "user=bernardn password=password host=postgres dbname=friend_service port=5432 sslmode=disable"
-  #       jwtSecret: "superSecretKey"
-  #       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-  #       port: ":8080"
+  friend-service:
+    build: 
+      context: ../friend-service
+      dockerfile: ./friend-service.dockerfile
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+        DSN: "user=bernardn password=password host=postgres dbname=friend_service port=5432 sslmode=disable"
+        jwtSecret: "superSecretKey"
+        rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+        port: ":8080"
 
   notification-service:
     build:
