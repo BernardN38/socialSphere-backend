@@ -5,7 +5,9 @@ CREATE TABLE users
     username   text NOT NULL UNIQUE,
     email      text NOT NULL UNIQUE,
     first_name text NOT NULL,
-    last_name  text NOT NULL
+    last_name  text NOT NULL,
+    last_upload timestamp,
+    last_image_id uuid
 );
 
 CREATE TABLE follow

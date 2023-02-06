@@ -160,7 +160,7 @@ func (h *Handler) FindFriends(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(users) == 0 {
-		http.Error(w, "now users found", http.StatusNotFound)
+		http.Error(w, "No users found", http.StatusNotFound)
 		return
 	}
 	respPayload, err := json.Marshal(users)
@@ -198,4 +198,34 @@ func (h *Handler) CheckFollow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	helpers.ResponseWithPayload(w, http.StatusOK, []byte(fmt.Sprintf("%v", followStatus)))
+}
+
+func (h *Handler) GetFriendsLastestPhotos(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(string)
+	if !ok {
+		log.Println("error parsing userId to string")
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+	userIdi64, err := strconv.ParseInt(userId, 10, 32)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	userFollows, err := h.UsersDb.GetLatestPhotos(context.Background(), users.GetLatestPhotosParams{
+		FriendA: int32(userIdi64),
+		Limit:   3,
+	})
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "no follows found", http.StatusNotFound)
+		return
+	}
+	resp, err := json.Marshal(userFollows)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(userFollows)
+	helpers.ResponseWithPayload(w, http.StatusOK, resp)
 }

@@ -31,7 +31,7 @@ type server struct {
 
 func New() *App {
 	app := App{}
-	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.HS256}
+	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.Algorithm(jwt.HS256)}
 	app.runAppSetup(config)
 	return &app
 }
@@ -43,6 +43,8 @@ func (app *App) Run() {
 func (app *App) runAppSetup(config Config) {
 	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
 	var upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
@@ -52,7 +54,8 @@ func (app *App) runAppSetup(config Config) {
 		Password: "password",
 		DB:       0,
 	})
-	h := &handler.Handler{TokenManager: tokenManger, Upgrader: upgrader, Conns: make(map[string]*websocket.Conn), Rdb: rdb}
+
+	h := &handler.Handler{TokenManager: tokenManger, Upgrader: upgrader, Conns: make(map[int32]*websocket.Conn), Rdb: rdb}
 
 	app.srv.router = SetupRouter(h, tokenManger)
 	app.tokenManager = tokenManger

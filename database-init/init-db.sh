@@ -85,7 +85,9 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     username   text NOT NULL UNIQUE,
     email      text NOT NULL UNIQUE,
     first_name text NOT NULL,
-    last_name  text NOT NULL
+    last_name  text NOT NULL,
+    last_upload timestamp,
+    last_image_id uuid
 );
   COMMIT;
   BEGIN;

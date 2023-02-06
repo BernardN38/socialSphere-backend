@@ -8,6 +8,16 @@ SELECT *
 FROM users
 WHERE id = $1 LIMIT 1;
 
+-- name: GetLatestPhotos :many
+SELECT friend_b, last_upload, last_image_id FROM follow JOIN users on follow.friend_b
+= users.id where follow.friend_a = $1 ORDER BY last_upload LIMIT $2;
+
+
+
+
+-- name: UpdateUserLastUpload :exec 
+UPDATE users SET last_upload = $1, last_image_id = $2 WHERE user_id = $3;
+
 -- name: GetUserByUsername :one
 SELECT *
 FROM users

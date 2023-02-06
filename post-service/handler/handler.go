@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -176,30 +175,16 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	err = r.ParseMultipartForm(10 << 20)
+	body, file, contentType, err := GetBodyAndImage(r)
 	if err != nil {
 		log.Println(err)
+		http.Error(w, "invalid post form", http.StatusBadRequest)
 		return
 	}
-	body := r.MultipartForm.Value["body"]
-	if len(body) < 1 {
-		helpers.ResponseNoPayload(w, http.StatusBadRequest)
-	}
-	var imageId uuid.NullUUID
-	file, header, fileErr := r.FormFile("image")
-	if fileErr != nil {
-		fmt.Println("Error Retrieving the File")
-		fmt.Println(fileErr)
-		imageId.Valid = false
-	} else {
-		imageId.UUID = uuid.New()
-		imageId.Valid = true
-	}
-	fmt.Printf("Uploaded File: %+v\n", header.Filename)
-	fmt.Printf("File Size: %+v\n", header.Size)
-	fmt.Printf("MIME Header: %+v\n", header.Header)
+	var imageId = uuid.NullUUID{UUID: uuid.New(), Valid: file != nil}
+
 	createdPost, err := h.PostDb.CreatePost(context.Background(), post.CreatePostParams{
-		Body:       body[0],
+		Body:       body,
 		UserID:     convertedUserId,
 		AuthorName: username,
 		ImageID:    imageId,
@@ -208,34 +193,18 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithPayload(w, 500, []byte(err.Error()))
 		return
 	}
-	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, file); err != nil {
-		log.Println(err)
-		http.Error(w, "", http.StatusBadRequest)
-		return
-	}
 
-	uploadImage := models.RpcImageUpload{
-		UserId:  convertedUserId,
-		Image:   buf.Bytes(),
-		ImageId: imageId.UUID,
-	}
-	if fileErr == nil {
-		err := h.RpcClient.UploadImage(uploadImage)
+	if file != nil {
+		log.Println(contentType)
+		err = UploadImage(h, convertedUserId, imageId, contentType, file)
 		if err != nil {
 			log.Println(err)
 		}
-		err = SendImageToQueue(h, "image-proccessing", imageId.UUID, header.Header.Get("Content-Type"))
-		log.Println(time.Now())
+		err = SendUserPhotoUploadUpdate(h, "userPhotoUpload", imageId.UUID, convertedUserId)
 		if err != nil {
 			log.Println(err)
 		}
 	}
-	err = file.Close()
-	if err != nil {
-		log.Println(err)
-	}
-
 	helpers.ResponseWithPayload(w, http.StatusCreated, []byte(fmt.Sprintf(`{Post created with id: "%v"}`, createdPost.ID)))
 }
 
@@ -328,7 +297,7 @@ func (h *Handler) DeletePost(w http.ResponseWriter, r *http.Request) {
 		UserID: parsedUserId,
 	})
 	if err != nil {
-		helpers.ResponseWithJson(w, 500, helpers.JsonResponse{Msg: err.Error()})
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 	h.RabbitMQEmitter.PushDelete(imageId.UUID.String())

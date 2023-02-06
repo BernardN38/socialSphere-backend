@@ -1,5 +1,6 @@
 package com.socialsphere.notificationService.models;
 
+import com.socialsphere.notificationService.dto.MessageDto;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,11 +19,13 @@ public class Notification {
     @GeneratedValue(strategy=GenerationType.AUTO)
     private Long id;
     private Long userId;
-    private String message;
+    private String payload;
+
+    private String fromUsername;
     private String type;
     @CreationTimestamp
     private Timestamp timestamp;
-    public Notification(String message) {
-        this.message = message;
+    public Notification(String payload) {
+        this.payload = payload;
     }
 }

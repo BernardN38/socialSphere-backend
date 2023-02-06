@@ -25,6 +25,7 @@ public class RedisMessageSubscriber implements MessageListener {
     @Override
     public void onMessage(Message message, byte[] pattern) {
         String payload = new String(message.getBody());
+        System.out.println(payload);
         ObjectMapper mapper = new ObjectMapper();
         NotificationDto notification;
         try {
@@ -32,6 +33,7 @@ public class RedisMessageSubscriber implements MessageListener {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+
         simpMessagingTemplate.convertAndSendToUser(notification.getUserId().toString(), "/notifications", notification);
     }
 }

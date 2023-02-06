@@ -31,7 +31,23 @@ func NewRabbitEventEmitter(conn *amqp.Connection) (RabbitMQEmitter, error) {
 	}
 	return emitter, nil
 }
-
+func (e *RabbitMQEmitter) PushPhotoUpdate(event []byte, queue string, routingKey string) error {
+	channel, err := e.connection.Channel()
+	if err != nil {
+		return err
+	}
+	err = channel.PublishWithContext(context.Background(), "friend-service", routingKey, false, false, amqp.Publishing{
+		DeliveryMode: amqp.Persistent, ContentType: "application/json", Body: event,
+	})
+	if err != nil {
+		return err
+	}
+	err = channel.Close()
+	if err != nil {
+		log.Println(err)
+	}
+	return nil
+}
 func (e *RabbitMQEmitter) PushImage(event []byte, queue string, routingKey string) error {
 	channel, err := e.connection.Channel()
 	if err != nil {

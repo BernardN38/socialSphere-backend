@@ -58,6 +58,7 @@ func GetUserIdFromRequest(r *http.Request, checkContext bool) (int32, error) {
 	var userId int32
 
 	urlUserId := chi.URLParam(r, "userId")
+	log.Println(urlUserId)
 	if len(urlUserId) > 0 {
 		convertedId, err := ConvertUserId(urlUserId)
 		if err != nil {

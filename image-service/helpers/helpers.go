@@ -30,12 +30,11 @@ func ResponseNoPayload(w http.ResponseWriter, responseCode int) {
 
 func UploadToS3(m *minio.Client, file []byte, imageId string) error {
 	fileReader := bytes.NewReader(file)
-	info, err := m.PutObject("image-service-socialsphere1", imageId, fileReader, fileReader.Size(), minio.PutObjectOptions{})
+	_, err := m.PutObject("image-service-socialsphere1", imageId, fileReader, fileReader.Size(), minio.PutObjectOptions{})
 	if err != nil {
 		log.Println(err)
 		return err
 	}
-	log.Println(info)
 	return nil
 }
 

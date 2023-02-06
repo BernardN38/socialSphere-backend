@@ -209,3 +209,46 @@ func (h *Handler) GetUserProfileImage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Write(body)
 }
+
+func (h *Handler) GetOwnProfileImage(w http.ResponseWriter, r *http.Request) {
+	// get user id from url param if missing use jwt token user id
+	userId, ok := r.Context().Value("userId").(string)
+	if !ok {
+		log.Println("could not get userId from context")
+		http.Error(w, "", http.StatusInternalServerError)
+	}
+	convertedUserId, err := helpers.ConvertUserId(userId)
+	if err != nil {
+		log.Println(err)
+	}
+	//get image id from datbase for specified user id
+	imageId, err := h.UserDb.GetUserProfileImage(context.Background(), convertedUserId)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	// make request to image service
+	token, _ := r.Cookie("jwtToken")
+	newReq, _ := http.NewRequest("GET", fmt.Sprintf("http://image-service:8080/image/%s", imageId), nil)
+	newReq.AddCookie(token)
+	resp, err := http.DefaultClient.Do(newReq)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	//read body and send to client
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "max-age=86400") //
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Write(body)
+}

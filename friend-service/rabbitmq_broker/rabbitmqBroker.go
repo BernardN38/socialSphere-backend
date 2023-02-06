@@ -2,12 +2,14 @@ package rabbitmq_broker
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"time"
 
 	"github.com/bernardn38/socialsphere/friend-service/models"
 	"github.com/bernardn38/socialsphere/friend-service/sql/users"
+	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -110,6 +112,30 @@ func ListenForMessages(config models.Config, conn *amqp.Connection, userDb *user
 				Email:     user.Email,
 				FirstName: user.FirstName,
 				LastName:  user.LastName,
+			})
+			if err != nil {
+				log.Println(err)
+				d.Reject(false)
+				return
+			}
+		case "userPhotoUpload":
+			var userUploadPhotoForm models.UserUploadPhotoForm
+			err := json.Unmarshal(d.Body, &userUploadPhotoForm)
+			if err != nil {
+				log.Println(err)
+				d.Reject(false)
+				return
+			}
+			err = userUploadPhotoForm.Validate()
+			if err != nil {
+				log.Println("user form not valid")
+				d.Reject(false)
+				return
+			}
+			err = userDb.UpdateUserLastUpload(context.Background(), users.UpdateUserLastUploadParams{
+				LastUpload:  sql.NullTime{Time: time.Now(), Valid: true},
+				LastImageID: uuid.NullUUID{UUID: userUploadPhotoForm.ImageId, Valid: true},
+				UserID:      userUploadPhotoForm.UserId,
 			})
 			if err != nil {
 				log.Println(err)

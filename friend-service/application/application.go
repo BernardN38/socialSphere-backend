@@ -94,6 +94,7 @@ func SetupRouter(h *handler.Handler) *chi.Mux {
 	router.Use(h.TokenManager.VerifyJwtToken)
 	router.Get("/friends/find", h.FindFriends)
 	router.Get("/friends/{friendId}/follow", h.CheckFollow)
+	router.Get("/friends/latestUploads", h.GetFriendsLastestPhotos)
 	router.Post("/friends", h.CreateUser)
 	router.Post("/friends/{friendId}/follow", h.CreateFollow)
 	return router

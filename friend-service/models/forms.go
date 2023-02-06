@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/cristalhq/jwt/v4"
+	"github.com/google/uuid"
 	"gopkg.in/go-playground/validator.v9"
 )
 
@@ -35,6 +36,20 @@ type UserForm struct {
 }
 
 func (u *UserForm) Validate() error {
+	validate := validator.New()
+	err := validate.Struct(u)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type UserUploadPhotoForm struct {
+	UserId  int32     `json:"userId"`
+	ImageId uuid.UUID `json:"imageId"`
+}
+
+func (u *UserUploadPhotoForm) Validate() error {
 	validate := validator.New()
 	err := validate.Struct(u)
 	if err != nil {

@@ -4,7 +4,11 @@
 
 package users
 
-import ()
+import (
+	"database/sql"
+
+	"github.com/google/uuid"
+)
 
 type Follow struct {
 	ID      int32
@@ -13,10 +17,12 @@ type Follow struct {
 }
 
 type User struct {
-	ID        int32
-	UserID    int32
-	Username  string
-	Email     string
-	FirstName string
-	LastName  string
+	ID          int32
+	UserID      int32
+	Username    string
+	Email       string
+	FirstName   string
+	LastName    string
+	LastUpload  sql.NullTime
+	LastImageID uuid.NullUUID
 }

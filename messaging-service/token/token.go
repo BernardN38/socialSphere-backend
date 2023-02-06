@@ -24,6 +24,12 @@ func NewManager(secret []byte, SigningMethod jwt.Algorithm) *Manager {
 		SigningMethod: SigningMethod,
 	}
 }
+
+type key string
+
+var KeyUserid key = "userId"
+var KeyUsername key = "username"
+
 func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Cookie")
@@ -40,9 +46,8 @@ func (tm *Manager) VerifyJwtToken(next http.Handler) http.Handler {
 			helpers.ResponseNoPayload(w, http.StatusUnauthorized)
 			return
 		}
-
-		ctx := context.WithValue(r.Context(), "userId", token.ID)
-		ctx = context.WithValue(ctx, "username", token.Subject)
+		ctx := context.WithValue(r.Context(), KeyUserid, token.ID)
+		ctx = context.WithValue(ctx, KeyUsername, token.Subject)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

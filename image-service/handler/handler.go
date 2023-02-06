@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/bernardn38/socialsphere/image-service/helpers"
 	"github.com/bernardn38/socialsphere/image-service/models"
@@ -76,21 +77,24 @@ func (h *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
-
 	imageId := uuid.New()
+	startTime := time.Now().UnixMilli()
 	err = helpers.UploadToS3(h.MinioClient, buf.Bytes(), imageId.String())
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Error uploading to", http.StatusInternalServerError)
 		return
 	}
+	endTime := time.Now().UnixMilli()
+	fmt.Println("minio upload duration ", endTime-startTime, "ms")
+
+	startTime = time.Now().UnixMilli()
 	err = SendImageToQueue(h, "image-proccessing", imageId, header.Header.Get("Content-Type"))
 	if err != nil {
 		log.Println(err)
 	}
-	fmt.Printf("Uploaded File: %+v\n", header.Filename)
-	fmt.Printf("File Size: %+v\n", header.Size)
-	fmt.Printf("MIME Header: %+v\n", header.Header)
+	endTime = time.Now().UnixMilli()
+	fmt.Println("send to rabbitmq duration", endTime-startTime, "ms")
 	// r.MultipartForm.RemoveAll()
 	helpers.ResponseNoPayload(w, 201)
 }

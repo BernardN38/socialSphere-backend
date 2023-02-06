@@ -7,6 +7,9 @@ package users
 
 import (
 	"context"
+	"database/sql"
+
+	"github.com/google/uuid"
 )
 
 const checkFollow = `-- name: CheckFollow :one
@@ -78,7 +81,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
 }
 
 const getFollowByFriendA = `-- name: GetFollowByFriendA :one
-SELECT id, user_id, username, email, first_name, last_name
+SELECT id, user_id, username, email, first_name, last_name, last_upload, last_image_id
 FROM users
 WHERE id = $1 LIMIT 1
 `
@@ -93,12 +96,53 @@ func (q *Queries) GetFollowByFriendA(ctx context.Context, id int32) (User, error
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
+		&i.LastUpload,
+		&i.LastImageID,
 	)
 	return i, err
 }
 
+const getLatestPhotos = `-- name: GetLatestPhotos :many
+SELECT friend_b, last_upload, last_image_id FROM follow JOIN users on follow.friend_b
+= users.id where follow.friend_a = $1 ORDER BY last_upload LIMIT $2
+`
+
+type GetLatestPhotosParams struct {
+	FriendA int32
+	Limit   int32
+}
+
+type GetLatestPhotosRow struct {
+	FriendB     int32
+	LastUpload  sql.NullTime
+	LastImageID uuid.NullUUID
+}
+
+func (q *Queries) GetLatestPhotos(ctx context.Context, arg GetLatestPhotosParams) ([]GetLatestPhotosRow, error) {
+	rows, err := q.db.QueryContext(ctx, getLatestPhotos, arg.FriendA, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetLatestPhotosRow
+	for rows.Next() {
+		var i GetLatestPhotosRow
+		if err := rows.Scan(&i.FriendB, &i.LastUpload, &i.LastImageID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, user_id, username, email, first_name, last_name
+SELECT id, user_id, username, email, first_name, last_name, last_upload, last_image_id
 FROM users
 WHERE email = $1 LIMIT 1
 `
@@ -113,12 +157,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
+		&i.LastUpload,
+		&i.LastImageID,
 	)
 	return i, err
 }
 
 const getUserByFirstName = `-- name: GetUserByFirstName :one
-SELECT id, user_id, username, email, first_name, last_name
+SELECT id, user_id, username, email, first_name, last_name, last_upload, last_image_id
 FROM users
 WHERE first_name = $1 LIMIT $2
 `
@@ -138,12 +184,14 @@ func (q *Queries) GetUserByFirstName(ctx context.Context, arg GetUserByFirstName
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
+		&i.LastUpload,
+		&i.LastImageID,
 	)
 	return i, err
 }
 
 const getUserById = `-- name: GetUserById :one
-SELECT id, user_id, username, email, first_name, last_name
+SELECT id, user_id, username, email, first_name, last_name, last_upload, last_image_id
 FROM users
 WHERE id = $1 LIMIT 1
 `
@@ -158,12 +206,14 @@ func (q *Queries) GetUserById(ctx context.Context, id int32) (User, error) {
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
+		&i.LastUpload,
+		&i.LastImageID,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, user_id, username, email, first_name, last_name
+SELECT id, user_id, username, email, first_name, last_name, last_upload, last_image_id
 FROM users
 WHERE username = $1 LIMIT 1
 `
@@ -178,6 +228,8 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
+		&i.LastUpload,
+		&i.LastImageID,
 	)
 	return i, err
 }
@@ -238,7 +290,7 @@ func (q *Queries) GetUsersByFields(ctx context.Context, arg GetUsersByFieldsPara
 }
 
 const getUsersByLastName = `-- name: GetUsersByLastName :many
-SELECT id, user_id, username, email, first_name, last_name
+SELECT id, user_id, username, email, first_name, last_name, last_upload, last_image_id
 FROM users
 WHERE last_name = $1 LIMIT $2
 `
@@ -264,6 +316,8 @@ func (q *Queries) GetUsersByLastName(ctx context.Context, arg GetUsersByLastName
 			&i.Email,
 			&i.FirstName,
 			&i.LastName,
+			&i.LastUpload,
+			&i.LastImageID,
 		); err != nil {
 			return nil, err
 		}
@@ -279,7 +333,7 @@ func (q *Queries) GetUsersByLastName(ctx context.Context, arg GetUsersByLastName
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, user_id, username, email, first_name, last_name
+SELECT id, user_id, username, email, first_name, last_name, last_upload, last_image_id
 FROM users
 ORDER BY id
 `
@@ -300,6 +354,8 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.Email,
 			&i.FirstName,
 			&i.LastName,
+			&i.LastUpload,
+			&i.LastImageID,
 		); err != nil {
 			return nil, err
 		}
@@ -320,7 +376,7 @@ set username   = $2,
     email      =$3,
     first_name = $4,
     last_name  = $5
-WHERE id = $1 RETURNING id, user_id, username, email, first_name, last_name
+WHERE id = $1 RETURNING id, user_id, username, email, first_name, last_name, last_upload, last_image_id
 `
 
 type UpdateUserParams struct {
@@ -347,6 +403,23 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
+		&i.LastUpload,
+		&i.LastImageID,
 	)
 	return i, err
+}
+
+const updateUserLastUpload = `-- name: UpdateUserLastUpload :exec
+UPDATE users SET last_upload = $1, last_image_id = $2 WHERE user_id = $3
+`
+
+type UpdateUserLastUploadParams struct {
+	LastUpload  sql.NullTime
+	LastImageID uuid.NullUUID
+	UserID      int32
+}
+
+func (q *Queries) UpdateUserLastUpload(ctx context.Context, arg UpdateUserLastUploadParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserLastUpload, arg.LastUpload, arg.LastImageID, arg.UserID)
+	return err
 }

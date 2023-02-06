@@ -78,6 +78,25 @@
     {
       "endpoint": "/users/profileImage",
       "output_encoding": "no-op",
+      "method": "GET",
+      "input_headers": [
+        "User-Agent",
+        "Accept",
+        "Cookie",
+        "Content-Type"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/users/profileImage",
+          "host": [
+            "http://identity-service:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/users/profileImage",
+      "output_encoding": "no-op",
       "method": "POST",
       "input_headers": [
         "User-Agent",

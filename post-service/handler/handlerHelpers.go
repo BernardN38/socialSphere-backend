@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
+	"mime/multipart"
+	"net/http"
 	"strconv"
 
 	"github.com/bernardn38/socialsphere/post-service/models"
@@ -74,10 +78,85 @@ func SendImageToQueue(h *Handler, routingKey string, imageId uuid.UUID, contentT
 	return nil
 }
 
+type UserUploadPhotoForm struct {
+	UserId  int32     `json:"userId"`
+	ImageId uuid.UUID `json:"imageId"`
+}
+
+func SendUserPhotoUploadUpdate(h *Handler, routingKey string, imageId uuid.UUID, userId int32) error {
+	message := UserUploadPhotoForm{
+		UserId:  userId,
+		ImageId: imageId,
+	}
+	jsonMessage, err := json.Marshal(message)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	err = h.RabbitMQEmitter.PushPhotoUpdate(jsonMessage, "friend-service", "userPhotoUpload")
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
+}
 func SendDeleteToQueue(routingKey string, imageId uuid.UUID, h *Handler) error {
 	err := h.RabbitMQEmitter.PushImage(nil, "image-service", routingKey)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func UploadImage(h *Handler, userId int32, imageId uuid.NullUUID, contentType string, file multipart.File) error {
+	if file == nil {
+		return errors.New("file is nil")
+	}
+	buf := bytes.NewBuffer(nil)
+	if _, err := io.Copy(buf, file); err != nil {
+		return err
+	}
+
+	uploadImage := models.RpcImageUpload{
+		UserId:  userId,
+		Image:   buf.Bytes(),
+		ImageId: imageId.UUID,
+	}
+	err := h.RpcClient.UploadImage(uploadImage)
+	if err != nil {
+		return err
+	}
+	err = SendImageToQueue(h, "image-proccessing", imageId.UUID, contentType)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetBodyAndImage(r *http.Request) (string, multipart.File, string, error) {
+	var body string
+	var file multipart.File
+
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		return "", nil, "", err
+	}
+
+	bodyArr, ok := r.MultipartForm.Value["body"]
+	if ok {
+		if len(body) > 0 {
+			body = bodyArr[0]
+		}
+	}
+	file, header, fileErr := r.FormFile("image")
+	if fileErr != nil {
+		return body, nil, "", err
+	}
+
+	defer file.Close()
+	if body == "" && file == nil {
+		return "", nil, "", errors.New("request form empty")
+	}
+	return body, file, header.Header.Get("Content-Type"), nil
 }

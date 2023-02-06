@@ -96,6 +96,7 @@ func ProtectedRoutes(h handler.Handler, tm *token.Manager) http.Handler {
 	})
 	router.Get("/users/{userId}", h.GetUser)
 	router.Get("/users/{userId}/profileImage", h.GetUserProfileImage)
+	router.Get("/users/profileImage", h.GetOwnProfileImage)
 	router.Post("/users/profileImage", h.CreateUserProfileImage)
 	return router
 }

@@ -22,7 +22,7 @@ services:
       replicas: 1
       resources:
         limits:
-          memory: 5072M
+          memory: 4G
     volumes:
       - ../rabbit-init/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ../rabbit-init/definitions.json:/etc/rabbitmq/definitions.json:ro
@@ -79,12 +79,17 @@ services:
     build:
       context: ../image-proccessing-service-worker
       dockerfile: ./image-proccessing-service-worker.dockerfile
-    ports:
-      - "5001:5001" 
     restart: always
     deploy:
       mode: replicated
       replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 4G
+            reservations:
+              cpus: "0.25"
+              memory: 128M
 
   authentication-service:
     build:
@@ -96,6 +101,13 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
     environment:
       DSN: "user=bernardn password=password host=postgres dbname=authentication_service port=5432 sslmode=disable"
       jwtSecret: "superSecretKey"
@@ -110,6 +122,13 @@ services:
       deploy:
         mode: replicated
         replicas: 1
+        resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
       environment:
         DSN: "user=bernardn password=password host=postgres dbname=post_service port=5432 sslmode=disable"
         jwtSecret: "superSecretKey"
@@ -126,6 +145,13 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 4G
+            reservations:
+              cpus: "0.25"
+              memory: 128M
     environment:
       DSN: "user=bernardn password=password host=postgres dbname=image_service port=5432 sslmode=disable"
       jwtSecret: "superSecretKey"
@@ -142,6 +168,13 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
     environment:
       DSN: "user=bernardn password=password host=postgres dbname=identity_service port=5432 sslmode=disable"
       jwtSecret: "superSecretKey"
@@ -158,15 +191,31 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
 
   friend-service:
     build: 
       context: ../friend-service
       dockerfile: ./friend-service.dockerfile
+    ports:
+      - "8085:8080"
     restart: always
     deploy:
       mode: replicated
       replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
     environment:
         DSN: "user=bernardn password=password host=postgres dbname=friend_service port=5432 sslmode=disable"
         jwtSecret: "superSecretKey"
@@ -182,6 +231,13 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
     environment:
         DATABASE_URL: "jdbc:postgresql://postgres:5432/notification_service"
         jwtSecret: "superSecretKey"
