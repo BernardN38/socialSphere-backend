@@ -29,10 +29,12 @@ func New() *App {
 	//get configuration from enviroment and validate
 	jwtSecret := os.Getenv("jwtSecret")
 	port := os.Getenv("port")
+	MongoUri := os.Getenv("mongoUri")
 	config := models.Config{
 		JwtSecretKey:     jwtSecret,
 		JwtSigningMethod: jwt.Algorithm(jwt.HS256),
 		Port:             port,
+		MongoUri:         MongoUri,
 	}
 	err := config.Validate()
 	if err != nil {
@@ -75,6 +77,7 @@ func SetupRouter(h *handler.Handler) *chi.Mux {
 	}))
 	router.Use(h.TokenManager.VerifyJwtToken)
 	router.Get("/messaging", h.HandleMessage)
+	router.Get("/message", h.GetAllMessages)
 	router.Get("/users/{userId}/checkOnline", h.CheckOnline)
 	return router
 }

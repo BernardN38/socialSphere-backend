@@ -134,13 +134,13 @@ func UploadImage(h *Handler, userId int32, imageId uuid.NullUUID, contentType st
 	return nil
 }
 
-func GetBodyAndImage(r *http.Request) (string, multipart.File, string, error) {
+func GetBodyAndImage(r *http.Request) (string, multipart.File, *multipart.FileHeader, error) {
 	var body string
 	var file multipart.File
 
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
-		return "", nil, "", err
+		return "", nil, nil, err
 	}
 
 	bodyArr, ok := r.MultipartForm.Value["body"]
@@ -151,12 +151,12 @@ func GetBodyAndImage(r *http.Request) (string, multipart.File, string, error) {
 	}
 	file, header, fileErr := r.FormFile("image")
 	if fileErr != nil {
-		return body, nil, "", err
+		return body, nil, nil, err
 	}
 
 	defer file.Close()
 	if body == "" && file == nil {
-		return "", nil, "", errors.New("request form empty")
+		return "", nil, nil, errors.New("request form empty")
 	}
-	return body, file, header.Header.Get("Content-Type"), nil
+	return body, file, header, nil
 }

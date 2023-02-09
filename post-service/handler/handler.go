@@ -175,14 +175,15 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	body, file, contentType, err := GetBodyAndImage(r)
+	body, file, header, err := GetBodyAndImage(r)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "invalid post form", http.StatusBadRequest)
 		return
 	}
-	var imageId = uuid.NullUUID{UUID: uuid.New(), Valid: file != nil}
+	defer file.Close()
 
+	var imageId = uuid.NullUUID{UUID: uuid.New(), Valid: file != nil}
 	createdPost, err := h.PostDb.CreatePost(context.Background(), post.CreatePostParams{
 		Body:       body,
 		UserID:     convertedUserId,
@@ -193,10 +194,8 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithPayload(w, 500, []byte(err.Error()))
 		return
 	}
-
 	if file != nil {
-		log.Println(contentType)
-		err = UploadImage(h, convertedUserId, imageId, contentType, file)
+		_, err := h.MinioClient.PutObject("image-service-socialsphere1", imageId.UUID.String(), file, header.Size, minio.PutObjectOptions{})
 		if err != nil {
 			log.Println(err)
 		}

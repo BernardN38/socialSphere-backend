@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,6 +14,10 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Handler struct {
@@ -21,6 +26,7 @@ type Handler struct {
 	UserConns    map[int32]*websocket.Conn
 	UserMutex    sync.RWMutex
 	RedisClient  *redis.Client
+	MongoClient  *mongo.Client
 }
 
 func NewHandler(config models.Config) (*Handler, error) {
@@ -36,8 +42,12 @@ func NewHandler(config models.Config) (*Handler, error) {
 		Password: "password", // no password set
 		DB:       0,          // use default DB
 	})
+	mongoClient, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(config.MongoUri))
+	if err != nil {
+		panic(err)
+	}
 
-	handler := Handler{TokenManager: tokenManger, Upgrader: upgrader, UserConns: conns, UserMutex: sync.RWMutex{}, RedisClient: redisClient}
+	handler := Handler{TokenManager: tokenManger, Upgrader: upgrader, UserConns: conns, UserMutex: sync.RWMutex{}, RedisClient: redisClient, MongoClient: mongoClient}
 	return &handler, nil
 }
 
@@ -49,6 +59,20 @@ func (h *Handler) CheckOnline(w http.ResponseWriter, r *http.Request) {
 	_, connected := h.UserConns[int32(userIdi64)]
 	h.UserMutex.RUnlock()
 	w.Write([]byte(fmt.Sprintf("%v", connected)))
+}
+func (h *Handler) GetAllMessages(w http.ResponseWriter, r *http.Request) {
+	collection := h.MongoClient.Database("message-service").Collection("message")
+	cursor, err := collection.Find(context.TODO(), bson.D{{}})
+	if err != nil {
+		log.Println(err)
+	}
+	messages := []models.Message{}
+	err = cursor.All(context.Background(), &messages)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(messages)
+	json.NewEncoder(w).Encode(messages)
 }
 
 func (h *Handler) HandleMessage(w http.ResponseWriter, r *http.Request) {
@@ -68,6 +92,7 @@ func (h *Handler) HandleMessage(w http.ResponseWriter, r *http.Request) {
 
 	pubsub := h.RedisClient.Subscribe(context.Background(), string(userId))
 	defer pubsub.Close()
+	collection := h.MongoClient.Database("message-service").Collection("message")
 
 	for {
 
@@ -78,7 +103,11 @@ func (h *Handler) HandleMessage(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			break
 		}
-		log.Printf("%+v", msg)
+		result, err := collection.InsertOne(context.Background(), msg)
+		if err != nil {
+			log.Println(err)
+		}
+		log.Printf("%+v, %+v", msg, result)
 
 		//check if target user is online then send message
 		if conn, ok := h.UserConns[msg.ToUserId]; ok {

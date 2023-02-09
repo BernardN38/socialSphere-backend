@@ -1,13 +1,11 @@
 package handler
 
 import (
-	"bytes"
 	"database/sql"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/bernardn38/socialsphere/image-service/helpers"
 	"github.com/bernardn38/socialsphere/image-service/models"
@@ -66,36 +64,18 @@ func (h *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	file, header, err := r.FormFile("image")
 	if err != nil {
 		fmt.Println(err)
-		http.Error(w, "", http.StatusBadRequest)
+		http.Error(w, "image missing in body", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 
-	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, file); err != nil {
-		log.Println(err)
-		http.Error(w, "", http.StatusBadRequest)
-		return
-	}
-	imageId := uuid.New()
-	startTime := time.Now().UnixMilli()
-	err = helpers.UploadToS3(h.MinioClient, buf.Bytes(), imageId.String())
+	_, err = h.MinioClient.PutObject("image-service-socialsphere1", uuid.NewString(), file, header.Size, minio.PutObjectOptions{})
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "Error uploading to", http.StatusInternalServerError)
+		http.Error(w, "error uploading to minio", http.StatusInternalServerError)
 		return
 	}
-	endTime := time.Now().UnixMilli()
-	fmt.Println("minio upload duration ", endTime-startTime, "ms")
 
-	startTime = time.Now().UnixMilli()
-	err = SendImageToQueue(h, "image-proccessing", imageId, header.Header.Get("Content-Type"))
-	if err != nil {
-		log.Println(err)
-	}
-	endTime = time.Now().UnixMilli()
-	fmt.Println("send to rabbitmq duration", endTime-startTime, "ms")
-	// r.MultipartForm.RemoveAll()
 	helpers.ResponseNoPayload(w, 201)
 }
 

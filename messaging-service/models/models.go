@@ -12,6 +12,7 @@ type Form interface {
 type Config struct {
 	JwtSecretKey     string        `validate:"required"`
 	JwtSigningMethod jwt.Algorithm `validate:"required"`
+	MongoUri         string        `validate:"required"`
 	Port             string        `validate:"required"`
 }
 
@@ -40,9 +41,9 @@ func (c *Notification) Validate() error {
 }
 
 type Message struct {
-	FromUserId   int32  `json:"fromUserId"`
-	FromUsername string `json:"fromUsername"`
-	ToUserId     int32  `json:"toUserId"`
-	Subject      string `json:"subject"`
-	Message      string `json:"message"`
+	FromUserId   int32  `json:"fromUserId" bson:"from_user_id"`
+	FromUsername string `json:"fromUsername" bson:"from_username"`
+	ToUserId     int32  `json:"toUserId" bson:"to_user_id"`
+	Subject      string `json:"subject" bson:"subject"`
+	Message      string `json:"message" bson:"message"`
 }
