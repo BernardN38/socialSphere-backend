@@ -1,13 +1,11 @@
 package com.socialsphere.notificationService.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.gson.Gson;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,12 +18,16 @@ import java.sql.Timestamp;
 @Getter
 @Setter
 public class MessageDto {
+    @JsonProperty
     private int fromUserId;
+    @JsonProperty
     private String fromUsername;
+    @JsonProperty
     private int toUserId;
+    @JsonProperty
     private String  subject;
+    @JsonProperty
     private String message;
-    private Timestamp timestamp;
 
     public MessageDto(String json) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
@@ -35,7 +37,6 @@ public class MessageDto {
         this.toUserId = messageDto.getToUserId();
         this.subject = messageDto.getSubject();
         this.message = messageDto.getMessage();
-        this.timestamp = messageDto.getTimestamp();
     }
     @Override
     public String toString() {

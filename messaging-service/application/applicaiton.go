@@ -3,66 +3,67 @@ package application
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/bernardn38/socialsphere/messaging-service/handler"
-	"github.com/bernardn38/socialsphere/messaging-service/token"
+	"github.com/bernardn38/socialsphere/messaging-service/models"
 	"github.com/cristalhq/jwt/v4"
-	"github.com/go-redis/redis/v8"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/cors"
-	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
 )
 
-type Config struct {
-	jwtSecretKey     string
-	jwtSigningMethod jwt.Algorithm
-}
 type App struct {
-	srv          server
-	tokenManager *token.Manager
+	srv server
 }
 
 type server struct {
-	router  *chi.Mux
-	handler *handler.Handler
+	router *chi.Mux
+	port   string
 }
 
 func New() *App {
 	app := App{}
-	config := Config{jwtSecretKey: "superSecretKey", jwtSigningMethod: jwt.Algorithm(jwt.HS256)}
+
+	//get configuration from enviroment and validate
+	jwtSecret := os.Getenv("jwtSecret")
+	port := os.Getenv("port")
+	config := models.Config{
+		JwtSecretKey:     jwtSecret,
+		JwtSigningMethod: jwt.Algorithm(jwt.HS256),
+		Port:             port,
+	}
+	err := config.Validate()
+	if err != nil {
+		log.Fatal(err.Error())
+		return nil
+	}
+
+	//run app setup
 	app.runAppSetup(config)
 	return &app
 }
 func (app *App) Run() {
-	log.Printf("listening on port %s", "8081")
-	log.Fatal(http.ListenAndServe(":8081", app.srv.router))
+	//start server
+	log.Printf("listening on port %s", app.srv.port)
+	log.Fatal(http.ListenAndServe(app.srv.port, app.srv.router))
 }
 
-func (app *App) runAppSetup(config Config) {
-	tokenManger := token.NewManager([]byte(config.jwtSecretKey), config.jwtSigningMethod)
-	var upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
+func (app *App) runAppSetup(config models.Config) {
+	// init request handler
+	h, err := handler.NewHandler(config)
+	if err != nil {
+		log.Fatal(err)
+		return
 	}
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "password",
-		DB:       0,
-	})
 
-	h := &handler.Handler{TokenManager: tokenManger, Upgrader: upgrader, Conns: make(map[int32]*websocket.Conn), Rdb: rdb}
-
-	app.srv.router = SetupRouter(h, tokenManger)
-	app.tokenManager = tokenManger
-	app.srv.handler = h
+	//init app router
+	app.srv.router = SetupRouter(h)
+	app.srv.port = config.Port
 }
 
-func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
+func SetupRouter(h *handler.Handler) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*", "null"},
@@ -72,8 +73,8 @@ func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
-	router.Use(tm.VerifyJwtToken)
-	router.Get("/messaging", h.SendMessage)
+	router.Use(h.TokenManager.VerifyJwtToken)
+	router.Get("/messaging", h.HandleMessage)
 	router.Get("/users/{userId}/checkOnline", h.CheckOnline)
 	return router
 }

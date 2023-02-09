@@ -1,5 +1,8 @@
 package com.socialsphere.notificationService.models;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import com.socialsphere.notificationService.dto.MessageDto;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -19,13 +22,17 @@ public class Notification {
     @GeneratedValue(strategy=GenerationType.AUTO)
     private Long id;
     private Long userId;
+    @Column(columnDefinition = "text")
     private String payload;
-
-    private String fromUsername;
     private String type;
     @CreationTimestamp
     private Timestamp timestamp;
-    public Notification(String payload) {
+
+    public Notification(Long userId, String payload,  String type) {
+        this.userId = userId;
         this.payload = payload;
+        this.type = type;
     }
+
+
 }

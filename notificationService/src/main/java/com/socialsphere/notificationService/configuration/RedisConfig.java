@@ -1,6 +1,7 @@
 package com.socialsphere.notificationService.configuration;
 
 import com.socialsphere.notificationService.RedisListener.RedisMessageSubscriber;
+import com.socialsphere.notificationService.repository.NotificationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +17,9 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 public class RedisConfig {
     @Autowired
     private SimpMessagingTemplate simpMessagingTemplate;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
     @Bean
     JedisConnectionFactory jedisConnectionFactory() {
         RedisStandaloneConfiguration configuration = new RedisStandaloneConfiguration();
@@ -34,7 +38,7 @@ public class RedisConfig {
 
     @Bean
     MessageListenerAdapter messageListener() {
-        return new MessageListenerAdapter(new RedisMessageSubscriber(simpMessagingTemplate));
+        return new MessageListenerAdapter(new RedisMessageSubscriber(notificationRepository, simpMessagingTemplate));
     }
 
     @Bean

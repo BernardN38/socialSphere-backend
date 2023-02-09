@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -131,6 +132,15 @@ func (h *Handler) CreateFollow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
+	payload := models.FollowNotificaitonPayload{Follower: int32(userIdi64), Followed: int32(friendIdi64), MessageType: "newFollow"}
+	jsonBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Println(err)
+	}
+	req, _ := http.NewRequest("POST", "http://notification-service:8080/notifications/follow", bytes.NewBuffer(jsonBytes))
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	log.Println(resp, err)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "", http.StatusInternalServerError)

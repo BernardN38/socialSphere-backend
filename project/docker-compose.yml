@@ -198,6 +198,9 @@ services:
             reservations:
               cpus: "0.25"
               memory: 128M
+    environment:
+        jwtSecret: "superSecretKey"
+        port: ":8081"
 
   friend-service:
     build: 
@@ -227,7 +230,7 @@ services:
       context: ../notificationService
       dockerfile: ./notification-service.dockerfile
     ports:
-      - 8088:8082
+      - 8088:8080
     deploy:
       mode: replicated
       replicas: 1
