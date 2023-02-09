@@ -1,12 +1,9 @@
 package application
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"runtime"
-	"time"
 
 	"github.com/bernardn38/socialsphere/image-service/handler"
 	"github.com/bernardn38/socialsphere/image-service/models"
@@ -74,12 +71,6 @@ func (app *App) runAppSetup(config models.Config) {
 	app.srv.router = SetupRouter(h)
 	app.srv.port = config.Port
 
-	go func() {
-		for {
-			PrintMemUsage()
-			time.Sleep(time.Second * 20)
-		}
-	}()
 	//init async rabbitmq worker
 	rabbitmq_broker.RunRabbitBroker(config)
 	rpc_broker.RunRpcServer(h.UserImageDB, h.MinioClient)
@@ -99,18 +90,4 @@ func SetupRouter(h *handler.Handler) *chi.Mux {
 	router.Post("/image", h.UploadImage)
 	router.Get("/image/{imageId}", h.GetImage)
 	return router
-}
-
-func PrintMemUsage() {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
-	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
-	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
-	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
-	fmt.Printf("\tNumGC = %v\n", m.NumGC)
-}
-
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
 }
