@@ -435,9 +435,13 @@
         }
       ]
     },{
-      "endpoint": "/java",
+      "endpoint": "/users/{userId}/messages",
       "output_encoding": "no-op",
       "method": "GET",
+      "input_query_strings": [
+        "pageSize",
+        "pageNo"
+      ],
       "input_headers": [
         "User-Agent",
         "Accept",
@@ -446,9 +450,9 @@
       ],
       "backend": [
         {
-          "url_pattern": "/java",
+          "url_pattern": "/users/{userId}/messages",
           "host": [
-            "http://notification-service:8080"
+            "http://messaging-service:8080"
           ]
         }
       ]

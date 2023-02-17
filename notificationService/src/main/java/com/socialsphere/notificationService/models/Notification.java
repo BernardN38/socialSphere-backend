@@ -22,9 +22,9 @@ public class Notification {
     @GeneratedValue(strategy=GenerationType.AUTO)
     private Long id;
     private Long userId;
-    @Column(columnDefinition = "text")
     private String payload;
     private String type;
+    private Boolean read;
     @CreationTimestamp
     private Timestamp timestamp;
 

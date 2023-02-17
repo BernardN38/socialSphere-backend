@@ -4,6 +4,7 @@ postgres-data
 image-proccessing-service-worker/venv/
 aws_creds.txt
 project/minio-data
+project/mongo_data
 image-proccessing-service-worker/__pycache__/
 init-scripts/__pycache__/
 init-scripts/venv/

@@ -68,6 +68,7 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 	encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(registerForm.Password), 12)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
@@ -75,6 +76,7 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	registerForm.Password = string(encryptedPassword)
 	createdUserId, err := CreateUser(h.UsersDb, registerForm)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
@@ -92,20 +94,20 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	reqBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "request body invalid", http.StatusBadRequest)
+		http.Error(w, "login body invalid", http.StatusBadRequest)
 		return
 	}
 	var loginForm models.LoginForm
 	err = json.Unmarshal(reqBody, &loginForm)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "request body invalid", http.StatusBadRequest)
+		http.Error(w, "login body invalid", http.StatusBadRequest)
 		return
 	}
 	err = loginForm.Validate()
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "register form invalid", http.StatusBadRequest)
+		http.Error(w, "login form invalid", http.StatusBadRequest)
 		return
 	}
 	user, err := h.UsersDb.GetUserByUsername(context.Background(), loginForm.Username)
@@ -123,7 +125,8 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+
 	log.Println("Log in successful userId: ", user.ID)
 	SetCookie(w, newToken)
-	helpers.ResponseWithPayload(w, 200, []byte(fmt.Sprintf("%v", user.ID)))
+	helpers.ResponseWithPayload(w, 200, []byte(fmt.Sprintf("Login Success: %v", user.ID)))
 }

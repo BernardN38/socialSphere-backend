@@ -11,31 +11,27 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
 public class MessageDto {
-    @JsonProperty
     private int fromUserId;
-    @JsonProperty
     private String fromUsername;
-    @JsonProperty
     private int toUserId;
-    @JsonProperty
-    private String  subject;
-    @JsonProperty
     private String message;
-
+    private Timestamp createdAt;
     public MessageDto(String json) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         MessageDto messageDto = mapper.readValue(json, MessageDto.class);
         this.fromUserId = messageDto.getFromUserId();
         this.fromUsername = messageDto.getFromUsername();
         this.toUserId = messageDto.getToUserId();
-        this.subject = messageDto.getSubject();
         this.message = messageDto.getMessage();
     }
     @Override

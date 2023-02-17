@@ -10,6 +10,9 @@ import (
 	"github.com/bernardn38/socialsphere/messaging-service/models"
 	"github.com/bernardn38/socialsphere/messaging-service/token"
 	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func PublishToRedis(h *Handler, msg models.Message) error {
@@ -61,4 +64,80 @@ func GetUsernameAndId(ctx context.Context) (string, int32, error) {
 		return "", 0, errors.New("username not valid")
 	}
 	return username, int32(userIdi64), nil
+}
+
+func GetMessagePage(client *mongo.Client, ctx context.Context, page int64, pageSize int64, userId int32, targetId int32) ([]models.Message, error) {
+	collection := client.Database("message-service").Collection("message")
+	findOptions := options.Find()
+	findOptions.SetSort(bson.M{"created_at": -1})
+	findOptions.SetLimit(pageSize)
+	findOptions.SetSkip((page - 1) * pageSize)
+	cursor, err := collection.Find(ctx, bson.M{
+		"$and": bson.A{
+			bson.M{
+				"$or": bson.A{
+					bson.M{"to_user_id": userId},
+					bson.M{"from_user_id": userId},
+				},
+			},
+			bson.M{
+				"$or": bson.A{
+					bson.M{"to_user_id": targetId},
+					bson.M{"from_user_id": targetId},
+				},
+			},
+		},
+	}, findOptions)
+	if err != nil {
+		return nil, err
+	}
+	messages := make([]models.Message, page)
+	err = cursor.All(ctx, &messages)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return messages, nil
+}
+
+func GetUserMessagePages(client *mongo.Client, ctx context.Context, page int64, pageSize int64, userId int32) (map[int32][]models.Message, error) {
+	collection := client.Database("message-service").Collection("message")
+	findOptions := options.Find()
+	findOptions.SetSort(bson.M{"created_at": -1})
+	findOptions.SetLimit(pageSize)
+	findOptions.SetSkip((page - 1) * pageSize)
+	filter := bson.M{
+		"$or": []bson.M{
+			bson.M{"from_user_id": userId, "to_user_id": bson.M{"$ne": userId}},
+			bson.M{"from_user_id": bson.M{"$ne": userId}, "to_user_id": userId},
+		},
+	}
+	cursor, err := collection.Find(ctx, filter, findOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a map to store the messages
+	messagesMap := make(map[int32][]models.Message)
+	for cursor.Next(ctx) {
+		var message models.Message
+		err := cursor.Decode(&message)
+		if err != nil {
+			// Handle error
+			log.Println(err)
+		}
+
+		// Determine the other user involved in the conversation
+		var otherUserID int32
+		if message.FromUserId == userId {
+			otherUserID = message.ToUserId
+		} else {
+			otherUserID = message.FromUserId
+		}
+
+		// Add the message to the map for the other user
+		messagesMap[otherUserID] = append(messagesMap[otherUserID], message)
+	}
+
+	return messagesMap, nil
 }

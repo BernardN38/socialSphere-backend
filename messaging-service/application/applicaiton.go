@@ -4,12 +4,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/bernardn38/socialsphere/messaging-service/handler"
 	"github.com/bernardn38/socialsphere/messaging-service/models"
 	"github.com/cristalhq/jwt/v4"
 
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
 )
@@ -75,9 +77,14 @@ func SetupRouter(h *handler.Handler) *chi.Mux {
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.Timeout(60 * time.Second))
 	router.Use(h.TokenManager.VerifyJwtToken)
 	router.Get("/messaging", h.HandleMessage)
-	router.Get("/message", h.GetAllMessages)
+	router.Get("/messages", h.GetAllMessages)
+	router.Get("/users/messages", h.GetAllUserMessages)
+	router.Get("/users/{userId}/messages", h.GetUserMessages)
 	router.Get("/users/{userId}/checkOnline", h.CheckOnline)
 	return router
 }

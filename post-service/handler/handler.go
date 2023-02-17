@@ -184,7 +184,7 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	var imageId = uuid.NullUUID{UUID: uuid.New(), Valid: file != nil}
-	createdPost, err := h.PostDb.CreatePost(context.Background(), post.CreatePostParams{
+	createdPost, err := h.PostDb.CreatePost(r.Context(), post.CreatePostParams{
 		Body:       body,
 		UserID:     convertedUserId,
 		AuthorName: username,
@@ -216,7 +216,7 @@ func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	respPost, err := h.PostDb.GetPostByIdWithLikes(context.Background(), convertedPostId)
+	respPost, err := h.PostDb.GetPostByIdWithLikes(r.Context(), convertedPostId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			helpers.ResponseNoPayload(w, http.StatusNotFound)
@@ -247,7 +247,7 @@ func (h *Handler) GetPostsPageByUserId(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
 		return
 	}
-	posts, err := h.PostDb.GetPostByUserIdPaged(context.Background(), post.GetPostByUserIdPagedParams{
+	posts, err := h.PostDb.GetPostByUserIdPaged(r.Context(), post.GetPostByUserIdPagedParams{
 		UserID: userId,
 		Limit:  limit + 1,
 		Offset: offset,
@@ -291,7 +291,7 @@ func (h *Handler) DeletePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	imageId, err := h.PostDb.DeletePostById(context.Background(), post.DeletePostByIdParams{
+	imageId, err := h.PostDb.DeletePostById(r.Context(), post.DeletePostByIdParams{
 		ID:     convertedPostId,
 		UserID: parsedUserId,
 	})
@@ -316,7 +316,7 @@ func (h *Handler) CreatePostLike(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	_, err = h.PostDb.CreatePostLike(context.Background(), post.CreatePostLikeParams{
+	_, err = h.PostDb.CreatePostLike(r.Context(), post.CreatePostLikeParams{
 		PostID: convertedPostId,
 		UserID: parsedUserId,
 	})
@@ -347,7 +347,7 @@ func (h *Handler) DeleteLike(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	err = h.PostDb.DeletePostLike(context.Background(), post.DeletePostLikeParams{
+	err = h.PostDb.DeletePostLike(r.Context(), post.DeletePostLikeParams{
 		UserID: parsedUserId,
 		PostID: convertedPostId,
 	})
@@ -373,7 +373,7 @@ func (h *Handler) CheckLike(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	isLiked, err := h.PostDb.CheckLike(context.Background(), post.CheckLikeParams{
+	isLiked, err := h.PostDb.CheckLike(r.Context(), post.CheckLikeParams{
 		PostID: convertedPostId,
 		UserID: parsedUserId,
 	})

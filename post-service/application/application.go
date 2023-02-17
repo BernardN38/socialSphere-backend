@@ -4,10 +4,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/bernardn38/socialsphere/post-service/handler"
 	"github.com/bernardn38/socialsphere/post-service/models"
 	"github.com/cristalhq/jwt/v4"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
@@ -54,7 +56,12 @@ func New() *App {
 func (app *App) Run() {
 	//start server
 	log.Printf("listening on port %s", app.srv.port)
-	log.Fatal(http.ListenAndServe(app.srv.port, app.srv.router))
+	server := http.Server{
+		Addr:        app.srv.port,
+		Handler:     app.srv.router,
+		ReadTimeout: 30 * time.Second,
+	}
+	log.Fatal(server.ListenAndServe())
 }
 
 func (app *App) runAppSetup(config models.Config) {
@@ -79,7 +86,13 @@ func SetupRouter(h *handler.Handler) *chi.Mux {
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
+	// middleware
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.Timeout(60 * time.Second))
 	router.Use(h.TokenManager.VerifyJwtToken)
+
+	//routes
 	router.Post("/posts", h.CreatePost)
 	router.Get("/users/{userId}/posts", h.GetPostsPageByUserId)
 	router.Get("/posts/{postId}", h.GetPost)

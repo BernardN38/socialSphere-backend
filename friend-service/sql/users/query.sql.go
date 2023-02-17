@@ -69,6 +69,20 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (int32, 
 	return user_id, err
 }
 
+const deleteFollow = `-- name: DeleteFollow :exec
+DELETE FROM follow WHERE friend_a = $1 AND friend_b = $2
+`
+
+type DeleteFollowParams struct {
+	FriendA int32
+	FriendB int32
+}
+
+func (q *Queries) DeleteFollow(ctx context.Context, arg DeleteFollowParams) error {
+	_, err := q.db.ExecContext(ctx, deleteFollow, arg.FriendA, arg.FriendB)
+	return err
+}
+
 const deleteUser = `-- name: DeleteUser :exec
 DELETE
 FROM users

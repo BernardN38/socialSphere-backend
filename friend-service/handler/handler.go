@@ -129,8 +129,14 @@ func (h *Handler) CreateFollow(w http.ResponseWriter, r *http.Request) {
 	})
 	var duplicateEntryError = &pq.Error{Code: "23505"}
 	if errors.As(err, &duplicateEntryError) {
-		http.Error(w, "", http.StatusBadRequest)
-		return
+		err := h.UsersDb.DeleteFollow(r.Context(), users.DeleteFollowParams{
+			FriendA: int32(userIdi64),
+			FriendB: int32(friendIdi64),
+		})
+		if err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 	}
 	payload := models.FollowNotificaitonPayload{Follower: int32(userIdi64), Followed: int32(friendIdi64), MessageType: "newFollow"}
 	jsonBytes, err := json.Marshal(payload)

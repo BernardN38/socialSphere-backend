@@ -5,11 +5,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/bernardn38/socialsphere/authentication-service/handler"
 	"github.com/bernardn38/socialsphere/authentication-service/models"
 	"github.com/bernardn38/socialsphere/authentication-service/token"
 	"github.com/cristalhq/jwt/v4"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
@@ -85,6 +87,10 @@ func SetupRouter(h *handler.Handler) *chi.Mux {
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.Timeout(60 * time.Second))
+
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Write([]byte("Server is up and running"))
 	})

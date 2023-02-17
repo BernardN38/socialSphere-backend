@@ -52,23 +52,26 @@ services:
       - ../postgres-data:/var/lib/postgresql/data
       - ../database-init:/docker-entrypoint-initdb.d/
 
-  # mongo:
-  #   image: mongo
-  #   restart: always
-  #   environment:
-  #     MONGO_INITDB_ROOT_USERNAME: root
-  #     MONGO_INITDB_ROOT_PASSWORD: password
+  mongo:
+    image: mongo
+    restart: always
+    volumes:
+      - ${PWD}/mongo_data:/data/db
+      # - ./mongo-init/mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
       
-  # redis:
-  #   image: "redis:alpine"
-  #   command: redis-server --requirepass password
-  #   # ports:
-  #   #  - "6379:6379"
-  #   volumes:
-  #     - $PWD/redis-data:/var/lib/redis
-  #     - $PWD/redis.conf:/usr/local/etc/redis/redis.conf
-  #   environment:
-  #    - REDIS_REPLICATION_MODE=master
+  redis:
+    image: "redis:alpine"
+    command: redis-server --requirepass password
+    # ports:
+    #  - "6379:6379"
+    volumes:
+      - $PWD/redis-data:/var/lib/redis
+      - $PWD/redis.conf:/usr/local/etc/redis/redis.conf
+    environment:
+     - REDIS_REPLICATION_MODE=master
 
   
   minio:
@@ -82,21 +85,21 @@ services:
     volumes:
       - ${PWD}/minio-data:/data
 
-  # image-proccessing-service-worker:
-  #   build:
-  #     context: ../image-proccessing-service-worker
-  #     dockerfile: ./image-proccessing-service-worker.dockerfile
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #     resources:
-  #           limits:
-  #             cpus: "1"
-  #             memory: 4G
-  #           reservations:
-  #             cpus: "0.25"
-  #             memory: 128M
+  image-proccessing-service-worker:
+    build:
+      context: ../image-proccessing-service-worker
+      dockerfile: ./image-proccessing-service-worker.dockerfile
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 4G
+            reservations:
+              cpus: "0.25"
+              memory: 128M
 
   authentication-service:
     build:
@@ -117,37 +120,39 @@ services:
               memory: 128M
     environment:
       DSN: "user=bernardn password=password host=postgres dbname=authentication_service port=5432 sslmode=disable"
-      jwtSecret: "superSecretKey"
+      jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
       port: ":8080"
 
-  # post-service:
-  #     build:
-  #       context: ../post-service
-  #       dockerfile: ./post-service.dockerfile
-  #     restart: always
-  #     deploy:
-  #       mode: replicated
-  #       replicas: 1
-  #       resources:
-  #           limits:
-  #             cpus: "1"
-  #             memory: 512M
-  #           reservations:
-  #             cpus: "0.25"
-  #             memory: 128M
-  #     environment:
-  #       DSN: "user=bernardn password=password host=postgres dbname=post_service port=5432 sslmode=disable"
-  #       jwtSecret: "superSecretKey"
-  #       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-  #       minioKey: minio
-  #       minioSecret: minio123
-  #       port: ":8080"
+  post-service:
+      build:
+        context: ../post-service
+        dockerfile: ./post-service.dockerfile
+      restart: always
+      deploy:
+        mode: replicated
+        replicas: 1
+        resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
+      environment:
+        DSN: "user=bernardn password=password host=postgres dbname=post_service port=5432 sslmode=disable"
+        jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
+        rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+        minioKey: minio
+        minioSecret: minio123
+        port: ":8080"
 
   image-service:
     build:
       context: ../image-service
       dockerfile: ./image-service.dockerfile
+    ports:
+      - "6060:6060"
     restart: always
     deploy:
       mode: replicated
@@ -161,96 +166,96 @@ services:
               memory: 128M
     environment:
       DSN: "user=bernardn password=password host=postgres dbname=image_service port=5432 sslmode=disable"
-      jwtSecret: "superSecretKey"
+      jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
       minioKey: minio
       minioSecret: minio123
       port: ":8080"
 
-  # identity-service:
-  #   build:
-  #     context: ../identity-service
-  #     dockerfile: ./identity-service.dockerfile
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #     resources:
-  #           limits:
-  #             cpus: "1"
-  #             memory: 512M
-  #           reservations:
-  #             cpus: "0.25"
-  #             memory: 128M
-  #   environment:
-  #     DSN: "user=bernardn password=password host=postgres dbname=identity_service port=5432 sslmode=disable"
-  #     jwtSecret: "superSecretKey"
-  #     rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-  #     port: ":8080"
+  identity-service:
+    build:
+      context: ../identity-service
+      dockerfile: ./identity-service.dockerfile
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
+    environment:
+      DSN: "user=bernardn password=password host=postgres dbname=identity_service port=5432 sslmode=disable"
+      jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
+      rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+      port: ":8080"
   
-  # messaging-service:
-  #   build: 
-  #     context: ../messaging-service
-  #     dockerfile: ./messaging-service.dockerfile
-  #   ports:
-  #     - "8086:8080"
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #     resources:
-  #           limits:
-  #             cpus: "1"
-  #             memory: 512M
-  #           reservations:
-  #             cpus: "0.25"
-  #             memory: 128M
-  #   environment:
-  #       jwtSecret: "superSecretKey"
-  #       port: ":8080"
-  #       mongoUri: "mongodb://root:password@mongo:27017/?maxPoolSize=20&w=majority"
+  messaging-service:
+    build: 
+      context: ../messaging-service
+      dockerfile: ./messaging-service.dockerfile
+    ports:
+      - "8086:8080"
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
+    environment:
+        jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
+        port: ":8080"
+        mongoUri: "mongodb://root:password@mongo:27017/?maxPoolSize=20&w=majority"
 
-  # friend-service:
-  #   build: 
-  #     context: ../friend-service
-  #     dockerfile: ./friend-service.dockerfile
-  #   ports:
-  #     - "8085:8080"
-  #   restart: always
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #     resources:
-  #           limits:
-  #             cpus: "1"
-  #             memory: 512M
-  #           reservations:
-  #             cpus: "0.25"
-  #             memory: 128M
-  #   environment:
-  #       DSN: "user=bernardn password=password host=postgres dbname=friend_service port=5432 sslmode=disable"
-  #       jwtSecret: "superSecretKey"
-  #       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-  #       port: ":8080"
+  friend-service:
+    build: 
+      context: ../friend-service
+      dockerfile: ./friend-service.dockerfile
+    ports:
+      - "8085:8080"
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
+    environment:
+        DSN: "user=bernardn password=password host=postgres dbname=friend_service port=5432 sslmode=disable"
+        jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
+        rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+        port: ":8080"
 
-  # notification-service:
-  #   build:
-  #     context: ../notificationService
-  #     dockerfile: ./notification-service.dockerfile
-  #   ports:
-  #     - 8088:8080
-  #   deploy:
-  #     mode: replicated
-  #     replicas: 1
-  #     resources:
-  #           limits:
-  #             cpus: "1"
-  #             memory: 512M
-  #           reservations:
-  #             cpus: "0.25"
-  #             memory: 128M
-  #   environment:
-  #       DATABASE_URL: "jdbc:postgresql://postgres:5432/notification_service"
-  #       jwtSecret: "superSecretKey"
-  #       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-  #       port: "8082"
+  notification-service:
+    build:
+      context: ../notificationService
+      dockerfile: ./notification-service.dockerfile
+    ports:
+      - 8088:8080
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+            limits:
+              cpus: "1"
+              memory: 512M
+            reservations:
+              cpus: "0.25"
+              memory: 128M
+    environment:
+        DATABASE_URL: "jdbc:postgresql://postgres:5432/notification_service"
+        jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
+        rabbitMQUrl: "amqp://guest:guest@rabbitmq"
+        port: "8082"

@@ -12,9 +12,6 @@ WHERE id = $1 LIMIT 1;
 SELECT friend_b, last_upload, last_image_id FROM follow JOIN users on follow.friend_b
 = users.id where follow.friend_a = $1 ORDER BY last_upload LIMIT $2;
 
-
-
-
 -- name: UpdateUserLastUpload :exec 
 UPDATE users SET last_upload = $1, last_image_id = $2 WHERE user_id = $3;
 
@@ -55,6 +52,10 @@ VALUES ($1, $2, $3, $4, $5) RETURNING user_id;
 -- name: CreateFollow :exec
 INSERT INTO follow(friend_a, friend_b)
 VALUES ($1, $2) RETURNING *;
+
+-- name: DeleteFollow :exec
+DELETE FROM follow WHERE friend_a = $1 AND friend_b = $2;
+
 
 -- name: CheckFollow :one
 SELECT exists( select 1 FROM follow WHERE friend_a = $1 AND friend_b = $2);

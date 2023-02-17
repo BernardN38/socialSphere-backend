@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/bernardn38/socialsphere/friend-service/handler"
 	"github.com/bernardn38/socialsphere/friend-service/models"
@@ -12,6 +13,7 @@ import (
 	"github.com/bernardn38/socialsphere/friend-service/rpc_broker"
 	"github.com/bernardn38/socialsphere/friend-service/token"
 	"github.com/cristalhq/jwt/v4"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
@@ -91,6 +93,9 @@ func SetupRouter(h *handler.Handler) *chi.Mux {
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.Timeout(60 * time.Second))
 	router.Use(h.TokenManager.VerifyJwtToken)
 	router.Get("/friends/find", h.FindFriends)
 	router.Get("/friends/{friendId}/follow", h.CheckFollow)

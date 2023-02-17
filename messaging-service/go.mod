@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/cristalhq/jwt/v4 v4.0.2
 	github.com/gorilla/websocket v1.5.0
+	go.mongodb.org/mongo-driver v1.11.1
 )
 
 require (
@@ -19,20 +20,18 @@ require (
 	github.com/xdg-go/scram v1.1.1 // indirect
 	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
-	go.mongodb.org/mongo-driver v1.11.1 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/text v0.3.8 // indirect
+	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )
 
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
-	github.com/cristalhq/jwt v1.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/go-chi/chi v1.5.4 // indirect
-	github.com/go-chi/chi/v5 v5.0.8 // indirect
-	github.com/go-chi/cors v1.2.1 // indirect
-	github.com/go-redis/redis/v8 v8.11.5 // indirect
-	github.com/lib/pq v1.10.7 // indirect
+	github.com/go-chi/chi v1.5.4
+	github.com/go-chi/cors v1.2.1
+	github.com/go-redis/redis/v8 v8.11.5
+	github.com/lib/pq v1.10.7
 	gopkg.in/go-playground/validator.v9 v9.31.0
 )

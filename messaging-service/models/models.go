@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"github.com/cristalhq/jwt/v4"
 	"gopkg.in/go-playground/validator.v9"
 )
@@ -41,9 +43,9 @@ func (c *Notification) Validate() error {
 }
 
 type Message struct {
-	FromUserId   int32  `json:"fromUserId" bson:"from_user_id"`
-	FromUsername string `json:"fromUsername" bson:"from_username"`
-	ToUserId     int32  `json:"toUserId" bson:"to_user_id"`
-	Subject      string `json:"subject" bson:"subject"`
-	Message      string `json:"message" bson:"message"`
+	FromUserId   int32     `json:"fromUserId" bson:"from_user_id"`
+	FromUsername string    `json:"fromUsername" bson:"from_username"`
+	ToUserId     int32     `json:"toUserId" bson:"to_user_id"`
+	Message      string    `json:"message" bson:"message"`
+	CreatedAt    time.Time `json:"createdAt" bson:"created_at"`
 }

@@ -36,7 +36,7 @@ func (e *RabbitMQEmitter) PushPhotoUpdate(event []byte, queue string, routingKey
 	if err != nil {
 		return err
 	}
-	err = channel.PublishWithContext(context.Background(), "friend-service", routingKey, false, false, amqp.Publishing{
+	err = channel.PublishWithContext(context.Background(), "image-service", routingKey, false, false, amqp.Publishing{
 		DeliveryMode: amqp.Persistent, ContentType: "application/json", Body: event,
 	})
 	if err != nil {

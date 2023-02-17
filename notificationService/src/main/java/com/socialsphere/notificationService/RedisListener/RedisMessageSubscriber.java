@@ -20,8 +20,6 @@ import java.sql.Timestamp;
 @NoArgsConstructor
 @Service
 public class RedisMessageSubscriber implements MessageListener {
-
-
     private NotificationRepository notificationRepository;
 
     private SimpMessagingTemplate simpMessagingTemplate;
