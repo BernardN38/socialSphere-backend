@@ -1,7 +1,7 @@
 # SocialSphere
 
 
-[![GitHub last commit](https://img.shields.io/github/last-commit/BernardN38/socialSphere-backend)](https://github.com/BernardN38/socialSphere-backend/commits/main)
+![GitHub last commit](https://img.shields.io/github/last-commit/BernardN38/socialSphere-backend)(https://github.com/BernardN38/socialSphere-backend/commits/main)
 
 ![GitHub top language](https://github.com/BernardN38/socialSphere-backend)
 ![Lines of code](https://github.com/BernardN38/socialSphere-backend)
