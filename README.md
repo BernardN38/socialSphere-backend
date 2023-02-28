@@ -93,37 +93,37 @@ Here are the languages and technologies used in the project, along with brief de
 
 
 # Architecture
-Social Sphere Microservices Architecture
+## Social Sphere Microservices Architecture
 The Social Sphere app has adopted a microservices architecture to provide a modular and scalable approach to building the backend. This architecture enables the development and maintenance of each service independently, resulting in faster development and deployment times. In addition, each microservice can be scaled independently, allowing for better performance and availability during periods of high traffic.
 
-Benefits of Microservices Architecture
+## Benefits of Microservices Architecture
 The microservices architecture used in Social Sphere also provides greater fault tolerance, as a failure in one microservice does not necessarily affect the others. The architecture also benefits from decoupling the microservices, which reduces latency to the client and provides a smoother and more responsive user experience.
 
 The communication between the microservices is achieved using messaging with RabbitMQ. RabbitMQ allows the microservices to communicate with each other without being tightly coupled, which makes it easier to maintain and update the architecture over time.
 
-Microservices
-Media Microservice
+# Microservices
+## Media Microservice
 The media microservice handles image and video uploads in the Social Sphere app. When a user uploads an image or video, the microservice receives the file and stores it in Minio, a blob storage service. If the file is larger than 5MB, the microservice sends a message on RabbitMQ to the image processing microservice, which compresses the image asynchronously to reduce its size. The media microservice also handles generating thumbnails and metadata for uploaded media.
 
-Post Service
+## Post Service
 The post service receives posts from clients in the Social Sphere app. These posts can include a body and an image. When a post is submitted, the post service stores it in a PostgreSQL database, along with metadata such as the author, date, and number of likes. The post service also handles retrieving posts from the database for display in the app.
 
-Authentication Service
+## Authentication Service
 The authentication service is responsible for handling user registration and login in the Social Sphere app. When a user registers, the service creates a new user account and stores the user's information in a PostgreSQL database. When a user logs in, the authentication service verifies the user's credentials and generates a JWT token, which is used to authenticate the user with other services in the app.
 
-Friend Service
+## Friend Service
 The friend service handles friend requests and manages users' friend lists in the Social Sphere app. When a user sends a friend request, the friend service stores the request in a PostgreSQL database and sends a notification to the recipient. The friend service also handles retrieving users' friend lists and displaying them in the app.
 
-Messaging Service
+## Messaging Service
 The messaging service handles instant messaging in the Social Sphere app. When a user sends a message, the messaging service sends it over a WebSocket connection to the recipient. The messaging service also handles retrieving message history for display in the app.
 
-Identity Service
+## Identity Service
 The identity service is responsible for storing user identifying information, such as their name, profile picture, and bio, in the Social Sphere app. When a user creates a profile, the identity service stores the user's information in a PostgreSQL database. The identity service also handles retrieving user information for display in the app.
 
-Image Processing Microservice
+## Image Processing Microservice
 The image processing worker is a Python microservice that uses the PIL library to compress images asynchronously after it receives a message through RabbitMQ from the post service. It runs in the background and handles image compression without blocking the main thread of the app.
 
-Notification Service
+## Notification Service
 The notification service sends real-time notifications to users in the Social Sphere app. This microservice is written in Java using the Spring Boot framework and utilizes a WebSocket connection to send notifications to clients. The service is responsible for sending notifications for new messages and new followers. When a user receives a new message or a new follower, the notification service sends a notification to the user's device via the WebSocket connection.
 
 
