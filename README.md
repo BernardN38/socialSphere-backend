@@ -64,17 +64,25 @@ Notes.
 Here I will list the languages and techonologies used in the project with a breif description.
 
 - Go
-  - Go-Chi: 
+  - Go-Chi
     - A small lightweight library used to route requests.
+  - Sqlc
+    -A Go code generator that converts SQL queries into type safe go code.
 - Python
   - PIL:
     - An image proccessing lirabry used to compress adnd optimize images.
 - Java
   - Spring Boot:
     -A web framework used to build notification http server and websocket.
+- PostgreSQL:
+	- A SQL relational database used to provide persistence to the backend.
+- MongoDB:
+	-A NoSQL database used to provide persistence to messaging microservice.
+
 - NGINX
-  - A reverse proxy used to make a unified front for all microservices.
+  - A web server used as a reverse proxy used to make a unified front for all microservices.
 - Docker
+	- A container platform used to run our microservices and containers.
 - Minio
   - S3 like blob storage used to store images and videos.
 - RabbitMQ
