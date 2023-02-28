@@ -61,33 +61,33 @@ Notes.
 
 <img src="https://raw.githubusercontent.com/devicons/devicon/1119b9f84c0290e0f0b38982099a2bd027a48bf1/icons/java/java-original.svg" alt="Java Logo" height="50px" width="50px"><img src="https://raw.githubusercontent.com/devicons/devicon/1119b9f84c0290e0f0b38982099a2bd027a48bf1/icons/spring/spring-original.svg" alt="Spring Logo" height="50px" width="50px">
 
-Here I will list the languages and techonologies used in the project with a breif description.
+Here are the languages and technologies used in the project, along with brief descriptions:
 
-- Go
-  - Go-Chi
-    - A small lightweight library used to route requests.
-  - Sqlc
-    -A Go code generator that converts SQL queries into type safe go code.
-- Python
+- Go:
+  - Primary language used for most of the microservices.
+  - Go-Chi:
+    - A small, lightweight library used to route requests.
+  - Sqlc:
+    - A code generator that converts SQL queries into type-safe Go code, used to interact with the PostgreSQL database.
+- Python:
   - PIL:
-    - An image proccessing lirabry used to compress adnd optimize images.
-- Java
+    - An image processing library used to compress and optimize images.
+- Java:
   - Spring Boot:
-    -A web framework used to build notification http server and websocket.
+    - A web framework used to build the notification microservice HTTP server and WebSocket.
 - PostgreSQL:
-	- A SQL relational database used to provide persistence to the backend.
+  - A SQL relational database used to provide persistence to the backend.
 - MongoDB:
-	-A NoSQL database used to provide persistence to messaging microservice.
-
-- NGINX
-  - A web server used as a reverse proxy used to make a unified front for all microservices.
-- Docker
-	- A container platform used to run our microservices and containers.
-- Minio
-  - S3 like blob storage used to store images and videos.
-- RabbitMQ
-	- A messaging queue used for communication between microservices to decouple.
-- JWT
+  - A NoSQL database used to provide persistence to the messaging microservice.
+- NGINX:
+  - A web server used as a reverse proxy to make a unified front for all microservices.
+- Docker:
+  - A container platform used to run the microservices and containers.
+- Minio:
+  - An S3-like blob storage used to store images and videos.
+- RabbitMQ:
+  - A messaging queue used for communication between microservices to decouple.
+- JWT:
   - Used to secure and provide authentication to all microservices.
 
 
