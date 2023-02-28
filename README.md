@@ -2,9 +2,9 @@
 
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/BernardN38/socialSphere-backend)(https://github.com/BernardN38/socialSphere-backend/commits/main)
+![GitHub top language](https://img.shields.io/github/languages/top/BernardN38/socialSphere-backend)(https://github.com/BernardN38/socialSphere-backend)
+![Lines of code](https://img.shields.io/tokei/lines/github/BernardN38/socialSphere-backend)(https://github.com/BernardN38/socialSphere-backend)
 
-![GitHub top language](https://github.com/BernardN38/socialSphere-backend)
-![Lines of code](https://github.com/BernardN38/socialSphere-backend)
 
 
 This is the backend for a social media app called SocialSphere
