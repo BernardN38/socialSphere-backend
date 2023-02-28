@@ -60,7 +60,17 @@ Notes.
 
 
 
-<img src="https://raw.githubusercontent.com/devicons/devicon/1119b9f84c0290e0f0b38982099a2bd027a48bf1/icons/java/java-original.svg" alt="Java Logo" height="50px" width="50px"><img src="https://raw.githubusercontent.com/devicons/devicon/1119b9f84c0290e0f0b38982099a2bd027a48bf1/icons/spring/spring-original.svg" alt="Spring Logo" height="50px" width="50px">![Go Logo](https://raw.githubusercontent.com/devicons/devicon/master/icons/go/go-original.svg)
+<img src="https://raw.githubusercontent.com/devicons/devicon/1119b9f84c0290e0f0b38982099a2bd027a48bf1/icons/java/java-original.svg" alt="Java Logo" height="50px" width="50px">
+<img src="https://raw.githubusercontent.com/devicons/devicon/1119b9f84c0290e0f0b38982099a2bd027a48bf1/icons/spring/spring-original.svg" alt="Spring Logo" height="50px" width="50px">
+<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/go/go-original.svg" alt="Go Logo" height="50px" width="50px">
+<img src="https://raw.githubusercontent.com/devicons/devicon/1119b9f84c0290e0f0b38982099a2bd027a48bf1/icons/python/python-original.svg" alt="Python Logo" height="50px" width="50px">
+<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" alt="PostgreSQL Logo" height="50px" width="50px">
+<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/mongodb/mongodb-original.svg" alt="MongoDB Logo" height="50px" width="50px">
+<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/nginx/nginx-original.svg" alt="NGINX Logo" height="50px" width="50px">
+<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg" alt="Docker Logo" height="50px" width="50px">
+<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/rabbitmq/rabbitmq-original.svg" alt="RabbitMQ Logo" height="50px" width="50px">
+<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/jsonwebtoken/jsonwebtoken-original.svg" alt="JWT Logo" height="50px" width="50px">
+
 
 Here are the languages and technologies used in the project, along with brief descriptions:
 
