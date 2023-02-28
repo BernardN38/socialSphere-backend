@@ -25,7 +25,20 @@ func (c *Notification) Validate() error {
 }
 
 type FollowNotificaitonPayload struct {
-	Follower    int32  `json:"follower"`
-	Followed    int32  `json:"followed"`
-	MessageType string `json:"type" validate:"required"`
+	Follower         int32  `json:"follower"`
+	FollowerUsername string `json:"followerUsername"`
+	Followed         int32  `json:"followed"`
+	MessageType      string `json:"type" validate:"required"`
+}
+
+type UserFriendshipForm struct {
+	FriendA int32 `json:"friendA" validate:"required"`
+	FriendB int32 `json:"friendB" validate:"required"`
+}
+
+type FindFriendsForm struct {
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
 }

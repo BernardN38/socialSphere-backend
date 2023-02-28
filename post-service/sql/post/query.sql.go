@@ -280,7 +280,7 @@ func (q *Queries) GetPostById(ctx context.Context, id int32) (Post, error) {
 const getPostByIdWithLikes = `-- name: GetPostByIdWithLikes :one
 SELECT p.id, p.body, p.user_id, COUNT(pl.user_id)
 FROM post p 
-JOIN post_like pl
+LEFT JOIN post_like pl
 ON p.id = pl.post_id
 WHERE id = $1 GROUP BY p.id LIMIT 1
 `

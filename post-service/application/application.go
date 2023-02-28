@@ -8,10 +8,11 @@ import (
 
 	"github.com/bernardn38/socialsphere/post-service/handler"
 	"github.com/bernardn38/socialsphere/post-service/models"
+	"github.com/bernardn38/socialsphere/post-service/service"
+	"github.com/bernardn38/socialsphere/post-service/token"
 	"github.com/cristalhq/jwt/v4"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
 )
 
@@ -64,44 +65,44 @@ func (app *App) Run() {
 	log.Fatal(server.ListenAndServe())
 }
 
-func (app *App) runAppSetup(config models.Config) {
-	// init request handler
-	h, err := handler.NewHandler(config)
+func (app *App) runAppSetup(config models.Config) error {
+	// Initialize dependencies
+	service, err := service.New(&config)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
-
-	//init app router
-	app.srv.router = SetupRouter(h)
+	tokenManager := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
+	h := handler.NewHandler(service)
+	app.srv.router = SetupRouter(h, tokenManager)
 	app.srv.port = config.Port
+	return nil
 }
-func SetupRouter(h *handler.Handler) *chi.Mux {
+func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
-	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*", "null"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
-	}))
+	// router.Use(cors.Handler(cors.Options{
+	// 	AllowedOrigins:   []string{"https://*", "http://*", "null"},
+	// 	AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	// 	AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+	// 	ExposedHeaders:   []string{"Link"},
+	// 	AllowCredentials: true,
+	// 	MaxAge:           300, // Maximum value not ignored by any of major browsers
+	// }))
 	// middleware
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(60 * time.Second))
-	router.Use(h.TokenManager.VerifyJwtToken)
+	router.Use(tm.VerifyJwtToken)
 
 	//routes
-	router.Post("/posts", h.CreatePost)
-	router.Get("/users/{userId}/posts", h.GetPostsPageByUserId)
-	router.Get("/posts/{postId}", h.GetPost)
-	router.Delete("/posts/{postId}", h.DeletePost)
-	router.Get("/posts/{postId}/likes", h.GetLikeCount)
-	router.Post("/posts/{postId}/likes", h.CreatePostLike)
-	router.Delete("/posts/{postId}/likes", h.DeleteLike)
-	router.Get("/posts/{postId}/likes/check", h.CheckLike)
-	router.Post("/posts/{postId}/comments", h.CreateComment)
-	router.Get("/posts/{postId}/comments", h.GetAllPostComments)
+	router.Post("/api/v1/posts", h.CreatePost)
+	router.Get("/api/v1/posts/{postId}", h.GetPost)
+	router.Get("/api/v1/posts/users/{userId}", h.GetPostsPageByUserId)
+	router.Delete("/api/v1/posts/{postId}", h.DeletePost)
+	router.Get("/api/v1/posts/{postId}/likes", h.GetLikeCount)
+	router.Post("/api/v1/posts/{postId}/likes", h.CreatePostLike)
+	router.Delete("/api/v1/posts/{postId}/likes", h.DeleteLike)
+	router.Get("/api/v1/posts/{postId}/likes/check", h.CheckLike)
+	router.Post("/api/v1/posts/{postId}/comments", h.CreateComment)
+	router.Get("/api/v1/posts/{postId}/comments", h.GetAllPostComments)
 	return router
 }

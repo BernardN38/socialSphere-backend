@@ -9,11 +9,14 @@ import (
 
 	"github.com/bernardn38/socialsphere/authentication-service/handler"
 	"github.com/bernardn38/socialsphere/authentication-service/models"
+	"github.com/bernardn38/socialsphere/authentication-service/rabbitmq_broker"
+	rpcbroker "github.com/bernardn38/socialsphere/authentication-service/rpc_broker"
+	"github.com/bernardn38/socialsphere/authentication-service/service"
+	"github.com/bernardn38/socialsphere/authentication-service/sql/users"
 	"github.com/bernardn38/socialsphere/authentication-service/token"
 	"github.com/cristalhq/jwt/v4"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
 )
 
@@ -64,12 +67,23 @@ func (app *App) Run() {
 }
 
 func (app *App) runAppSetup(config models.Config) {
-	// init request handler
-	h, err := handler.NewHandler(config)
+	//open connection to postgres
+	db, err := sql.Open("postgres", config.PostgresUrl)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
+	// init sqlc user queries
+	queries := users.New(db)
+
+	//init rabbitmq message emitter
+	rabbitMQConn := rabbitmq_broker.ConnectToRabbitMQ(config.RabbitmqUrl)
+	emitter := rabbitmq_broker.NewEventEmitter(rabbitMQConn)
+
+	tm := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
+	authService := service.New(queries, emitter, &rpcbroker.RpcClient{})
+	// init request handler
+	h := handler.NewHandler(authService, tm)
 
 	//init app router
 	app.srv.router = SetupRouter(h)
@@ -79,22 +93,22 @@ func (app *App) runAppSetup(config models.Config) {
 
 func SetupRouter(h *handler.Handler) *chi.Mux {
 	router := chi.NewRouter()
-	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*", "null"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
-	}))
+	// router.Use(cors.Handler(cors.Options{
+	// 	AllowedOrigins:   []string{"https://*", "http://*", "null"},
+	// 	AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	// 	AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+	// 	ExposedHeaders:   []string{"Link"},
+	// 	AllowCredentials: true,
+	// 	MaxAge:           300, // Maximum value not ignored by any of major browsers
+	// }))
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(60 * time.Second))
 
-	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
+	router.Get("/api/v1/auth/health", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Write([]byte("Server is up and running"))
 	})
-	router.Post("/register", h.RegisterUser)
-	router.Post("/login", h.LoginUser)
+	router.Post("/api/v1/auth/register", h.RegisterUser)
+	router.Post("/api/v1/auth/login", h.LoginUser)
 	return router
 }

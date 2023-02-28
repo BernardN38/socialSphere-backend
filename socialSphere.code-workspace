@@ -10,9 +10,6 @@
 			"path": "identity-service"
 		},
 		{
-			"path": "image-service"
-		},
-		{
 			"path": "post-service"
 		},
 		{
@@ -25,9 +22,6 @@
 			"path": "rabbit-init"
 		},
 		{
-			"path": "messaging-service"
-		},
-		{
 			"path": "image-proccessing-service-worker"
 		},
 		{
@@ -38,6 +32,12 @@
 		},
 		{
 			"path": "init-scipts"
+		},
+		{
+			"path": "media-service"
+		},
+		{
+			"path": "message-service"
 		}
 	],
 	"settings": {

@@ -16,7 +16,7 @@ public class NotificationDto {
     private String payload;
     private String type;
     private Boolean read;
-    private Timestamp timestamp;
+    private Timestamp createdAt;
 
 
 }

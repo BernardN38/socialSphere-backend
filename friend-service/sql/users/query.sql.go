@@ -248,6 +248,33 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 	return i, err
 }
 
+const getUserFriendById = `-- name: GetUserFriendById :many
+SELECT friend_b FROM follow WHERE friend_a = $1
+`
+
+func (q *Queries) GetUserFriendById(ctx context.Context, friendA int32) ([]int32, error) {
+	rows, err := q.db.QueryContext(ctx, getUserFriendById, friendA)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var friend_b int32
+		if err := rows.Scan(&friend_b); err != nil {
+			return nil, err
+		}
+		items = append(items, friend_b)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUsersByFields = `-- name: GetUsersByFields :many
 SELECT user_id, username, first_name, last_name
 FROM users

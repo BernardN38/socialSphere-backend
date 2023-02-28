@@ -39,7 +39,7 @@ func (e *RabbitMQEmitter) PushDelete(key string) error {
 		return err
 	}
 	defer channel.Close()
-	err = channel.PublishWithContext(context.Background(), "image-service", "delete", false, false, amqp.Publishing{
+	err = channel.PublishWithContext(context.Background(), "media-service", "delete", false, false, amqp.Publishing{
 		DeliveryMode: amqp.Persistent, ContentType: "string", Body: []byte{}, Headers: map[string]interface{}{"imageId": key},
 	})
 	if err != nil {

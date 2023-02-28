@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bernardn38/socialsphere/post-service/sql/post"
 	"github.com/go-chi/chi/v5"
 	"github.com/minio/minio-go"
 )
@@ -20,10 +21,10 @@ type JsonResponse struct {
 }
 
 type PageResponse struct {
-	Page     interface{} `json:"page"`
-	PageSize int         `json:"pageSize"`
-	PageNo   int32       `json:"pageNo"`
-	LastPage bool        `json:"lastPage"`
+	Page     []post.GetPostByUserIdPagedRow `json:"page"`
+	PageSize int                            `json:"pageSize"`
+	PageNo   int32                          `json:"pageNo"`
+	LastPage bool                           `json:"lastPage"`
 }
 
 func ResponseWithJson(w http.ResponseWriter, statusCode int, payload JsonResponse) {
@@ -92,7 +93,7 @@ func GetUserIdFromRequest(r *http.Request, checkContext bool) (int32, error) {
 
 func UploadToS3(m *minio.Client, file []byte, imageId string) error {
 	fileReader := bytes.NewReader(file)
-	info, err := m.PutObject("image-service-socialsphere1", imageId, fileReader, fileReader.Size(), minio.PutObjectOptions{})
+	info, err := m.PutObject("media-service-socialsphere1", imageId, fileReader, fileReader.Size(), minio.PutObjectOptions{})
 	if err != nil {
 		log.Println(err)
 		return err

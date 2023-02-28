@@ -1,9 +1,6 @@
 package handler
 
 import (
-	"bytes"
-	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,43 +9,23 @@ import (
 
 	"github.com/bernardn38/socialsphere/identity-service/helpers"
 	"github.com/bernardn38/socialsphere/identity-service/models"
-	"github.com/bernardn38/socialsphere/identity-service/rabbitmq_broker"
-	imageServiceBroker "github.com/bernardn38/socialsphere/identity-service/rabbitmq_broker"
-	rpcbroker "github.com/bernardn38/socialsphere/identity-service/rpc_broker"
-	"github.com/bernardn38/socialsphere/identity-service/sql/users"
-	"github.com/bernardn38/socialsphere/identity-service/token"
-	"github.com/google/uuid"
+
+	"github.com/bernardn38/socialsphere/identity-service/service"
 )
 
+//	type Handler struct {
+//		UserDb    *users.Queries
+//		Emitter   *imageServiceBroker.RabbitBroker
+//		RpcClient *rpcbroker.RpcClient
+//	}
 type Handler struct {
-	UserDb       *users.Queries
-	TokenManager *token.Manager
-	Emitter      *imageServiceBroker.RabbitBroker
-	RpcClient    *rpcbroker.RpcClient
+	identityService *service.IdentityService
 }
 
-func NewHandler(config models.Config) (*Handler, error) {
-	//open connection to postgres
-	db, err := sql.Open("postgres", config.PostgresUrl)
-	if err != nil {
-		return nil, err
+func NewHandler(service *service.IdentityService) *Handler {
+	return &Handler{
+		identityService: service,
 	}
-
-	// init sqlc user queries
-	queries := users.New(db)
-
-	//init jwt token manager
-	tokenManger := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
-
-	//init rabbitmq message emitter
-	rabbitMQConn := rabbitmq_broker.ConnectToRabbitMQ(config.RabbitmqUrl)
-	rabbitBroker, err := imageServiceBroker.NewRabbitBroker(rabbitMQConn)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
-	handler := Handler{UserDb: queries, TokenManager: tokenManger, Emitter: rabbitBroker, RpcClient: &rpcbroker.RpcClient{}}
-	return &handler, nil
 }
 
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -69,16 +46,13 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//create new user in database
-	err = h.UserDb.CreateUser(context.Background(), users.CreateUserParams{ID: userForm.UserId,
-		Username: userForm.Username, FirstName: userForm.Username, LastName: userForm.LastName, Email: userForm.Email})
+	err = h.identityService.CreateUser(userForm)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	helpers.ResponseNoPayload(w, 201)
+	helpers.ResponseNoPayload(w, http.StatusCreated)
 }
 
 func (h *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Request) {
@@ -102,43 +76,12 @@ func (h *Handler) CreateUserProfileImage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	defer file.Close()
-
-	// create profile image association in database
-	imageId := uuid.New()
-	if err = h.UserDb.CreateUserProfileImage(context.Background(), users.CreateUserProfileImageParams{
-		UserID:  userId,
-		ImageID: imageId,
-	}); err != nil {
+	err = h.identityService.CreateUserProfileImage(userId, file, header.Header.Get("Content-Type"))
+	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	buf := bytes.NewBuffer(nil)
-	_, err = io.Copy(buf, file)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	//send image to rabbitmq for processing and upload to s3 bucket
-	imageUpload := models.RpcImageUpload{
-		UserId:  userId,
-		Image:   buf.Bytes(),
-		ImageId: imageId,
-	}
-	err = h.RpcClient.UploadImage(imageUpload)
-	if err != nil {
-		log.Println("rpc error", err)
-		return
-	}
-	if file != nil {
-		err = SendImageToQueue(h, "image-proccessing", imageId, header.Header.Get("Content-Type"))
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	}
-
 	helpers.ResponseNoPayload(w, http.StatusCreated)
 }
 
@@ -147,20 +90,15 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	userId, err := helpers.GetUserIdFromRequest(r, false)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	//get from database
-	user, err := h.UserDb.GetUserById(context.Background(), userId)
+	user, err := h.identityService.GetUser(userId)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-	}
-
 	//respond with json payload of user data
 	jsonResponse, err := json.Marshal(user)
 	if err != nil {
@@ -178,38 +116,17 @@ func (h *Handler) GetUserProfileImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
-	//get image id from datbase for specified user id
-	imageId, err := h.UserDb.GetUserProfileImage(context.Background(), userId)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	// make request to image service
-	token, _ := r.Cookie("jwtToken")
-	newReq, _ := http.NewRequest("GET", fmt.Sprintf("http://image-service:8080/image/%s", imageId), nil)
-	newReq.AddCookie(token)
-	resp, err := http.DefaultClient.Do(newReq)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	//read body and send to client
-	body, err := io.ReadAll(resp.Body)
+	imageId, err := h.identityService.GetImageIdByUserId(userId)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Cache-Control", "max-age=86400") //
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(body)
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(fmt.Sprintf(`{"profileImageId":"%s"}`, imageId))
 }
 
+// send image to client for userid found in jwt token
 func (h *Handler) GetOwnProfileImage(w http.ResponseWriter, r *http.Request) {
 	// get user id from url param if missing use jwt token user id
 	userId, ok := r.Context().Value("userId").(string)
@@ -221,34 +138,15 @@ func (h *Handler) GetOwnProfileImage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	//get image id from datbase for specified user id
-	imageId, err := h.UserDb.GetUserProfileImage(context.Background(), convertedUserId)
+	imageBytes, err := h.identityService.GetUserProfileImage(convertedUserId)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	// make request to image service
-	token, _ := r.Cookie("jwtToken")
-	newReq, _ := http.NewRequest("GET", fmt.Sprintf("http://image-service:8080/image/%s", imageId), nil)
-	newReq.AddCookie(token)
-	resp, err := http.DefaultClient.Do(newReq)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	//read body and send to client
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "error getting image", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Cache-Control", "max-age=86400") //
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(body)
+	w.Write(imageBytes)
 }

@@ -35,7 +35,7 @@ func (e *RabbitBroker) PushImage(event []byte, queue string, routingKey string) 
 	if err != nil {
 		return err
 	}
-	err = channel.PublishWithContext(context.Background(), "image-service", routingKey, false, false, amqp.Publishing{
+	err = channel.PublishWithContext(context.Background(), "media-service", routingKey, false, false, amqp.Publishing{
 		DeliveryMode: amqp.Persistent, ContentType: "multipart", Body: event,
 	})
 	if err != nil {
@@ -52,7 +52,7 @@ func (e *RabbitBroker) PushImageDelete(key string) error {
 	if err != nil {
 		return err
 	}
-	err = channel.PublishWithContext(context.Background(), "image-service", "delete", false, false, amqp.Publishing{
+	err = channel.PublishWithContext(context.Background(), "media-service", "delete", false, false, amqp.Publishing{
 		DeliveryMode: amqp.Persistent, ContentType: "string", Body: []byte{}, Headers: map[string]interface{}{"imageId": key},
 	})
 	if err != nil {

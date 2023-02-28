@@ -24,9 +24,9 @@ public class Notification {
     private Long userId;
     private String payload;
     private String type;
-    private Boolean read;
+    private Boolean read = false;
     @CreationTimestamp
-    private Timestamp timestamp;
+    private Timestamp createdAt;
 
     public Notification(Long userId, String payload,  String type) {
         this.userId = userId;

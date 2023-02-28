@@ -11,11 +11,12 @@ import (
 	"github.com/bernardn38/socialsphere/friend-service/models"
 	"github.com/bernardn38/socialsphere/friend-service/rabbitmq_broker"
 	"github.com/bernardn38/socialsphere/friend-service/rpc_broker"
+	"github.com/bernardn38/socialsphere/friend-service/service"
+	"github.com/bernardn38/socialsphere/friend-service/sql/users"
 	"github.com/bernardn38/socialsphere/friend-service/token"
 	"github.com/cristalhq/jwt/v4"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
 )
 
@@ -68,39 +69,56 @@ func (app *App) Run() {
 }
 
 func (app *App) runAppSetup(config models.Config) {
-	// init request handler
-	h, err := handler.NewHandler(config)
+	//open connection to postgres
+	db, err := sql.Open("postgres", config.PostgresUrl)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
+	// init sqlc user queries
+	queries := users.New(db)
 
+	//init jwt token manager
+	tokenManger := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
+
+	//init rabbitmq message emitter
+	rabbitMQConn := rabbitmq_broker.ConnectToRabbitMQ(config.RabbitmqUrl)
+	emitter, err := rabbitmq_broker.NewEventEmitter(rabbitMQConn)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//init
+	friendService := service.New(queries, emitter)
+
+	// init request handler
+	h := handler.NewHandler(friendService)
 	//init app router
-	app.srv.router = SetupRouter(h)
+	app.srv.router = SetupRouter(h, tokenManger)
 	app.srv.port = config.Port
 
-	//init async rabbitmq and rpc workers
-	rpc_broker.RunRpcServer(h.UsersDb)
-	rabbitmq_broker.RunRabbitBroker(config, h.UsersDb)
+	go rpc_broker.NewRpcServer(queries).ListenForRpc()
+	rabbitmq_broker.RunRabbitBroker(config, queries)
 }
-func SetupRouter(h *handler.Handler) *chi.Mux {
+func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
-	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*", "null"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
-	}))
+	// router.Use(cors.Handler(cors.Options{
+	// 	AllowedOrigins:   []string{"https://*", "http://*", "null"},
+	// 	AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	// 	AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+	// 	ExposedHeaders:   []string{"Link"},
+	// 	AllowCredentials: true,
+	// 	MaxAge:           300, // Maximum value not ignored by any of major browsers
+	// }))
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(60 * time.Second))
-	router.Use(h.TokenManager.VerifyJwtToken)
-	router.Get("/friends/find", h.FindFriends)
-	router.Get("/friends/{friendId}/follow", h.CheckFollow)
-	router.Get("/friends/latestUploads", h.GetFriendsLastestPhotos)
-	router.Post("/friends", h.CreateUser)
-	router.Post("/friends/{friendId}/follow", h.CreateFollow)
+	router.Use(tm.VerifyJwtToken)
+	router.Get("/api/v1/friends/find", h.FindFriends)
+	router.Get("/api/v1/friends/{friendId}/follow", h.CheckFollow)
+	router.Get("/api/v1/friends/latestUploads", h.GetFriendsLastestPhotos)
+	router.Post("/api/v1/friends", h.CreateUser)
+	router.Post("/api/v1/friends/{friendId}/follow", h.CreateFollow)
+	router.Get("/api/v1/friends", h.GetFriends)
 	return router
 }

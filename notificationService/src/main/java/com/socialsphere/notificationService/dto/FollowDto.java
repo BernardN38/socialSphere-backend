@@ -15,6 +15,7 @@ import lombok.Setter;
 @Setter
 public class FollowDto {
     private int follower;
+    private String followerUsername;
     private  int followed;
 
     private String messageType;

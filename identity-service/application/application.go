@@ -1,20 +1,21 @@
 package application
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/bernardn38/socialsphere/identity-service/handler"
+	"github.com/bernardn38/socialsphere/identity-service/helpers"
 	"github.com/bernardn38/socialsphere/identity-service/models"
-	imageServiceBroker "github.com/bernardn38/socialsphere/identity-service/rabbitmq_broker"
-	rpcreceiver "github.com/bernardn38/socialsphere/identity-service/rpc_broker"
+	"github.com/bernardn38/socialsphere/identity-service/rabbitmq_broker"
+	rpcbroker "github.com/bernardn38/socialsphere/identity-service/rpc_broker"
+	"github.com/bernardn38/socialsphere/identity-service/service"
+	"github.com/bernardn38/socialsphere/identity-service/sql/users"
 	"github.com/bernardn38/socialsphere/identity-service/token"
-	"github.com/cristalhq/jwt/v4"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
 )
 
@@ -31,22 +32,7 @@ func New() *App {
 	app := App{}
 
 	//get configuration from enviroment and validate
-	postgresUrl := os.Getenv("DSN")
-	jwtSecret := os.Getenv("jwtSecret")
-	rabbitMQUrl := os.Getenv("rabbitMQUrl")
-	port := os.Getenv("port")
-	config := models.Config{
-		JwtSecretKey:     jwtSecret,
-		JwtSigningMethod: jwt.Algorithm(jwt.HS256),
-		PostgresUrl:      postgresUrl,
-		RabbitmqUrl:      rabbitMQUrl,
-		Port:             port,
-	}
-	err := config.Validate()
-	if err != nil {
-		log.Fatal(err.Error())
-		return nil
-	}
+	config := helpers.GetEnvConfig()
 
 	//run app setup
 	app.runAppSetup(config)
@@ -58,50 +44,61 @@ func (app *App) Run() {
 	log.Fatal(http.ListenAndServe(app.srv.port, app.srv.router))
 }
 
-func (app *App) runAppSetup(config models.Config) {
-	// init request handler
-	h, err := handler.NewHandler(config)
+func (app *App) runAppSetup(config models.Config) error { //open connection to postgres
+	db, err := sql.Open("postgres", config.PostgresUrl)
 	if err != nil {
 		log.Fatal(err)
-		return
+		return err
 	}
 
-	//init app router
-	app.srv.router = SetupRouter(h)
+	// init sqlc user queries
+	queries := users.New(db)
+
+	//init rabbitmq message emitter
+	rabbitMQConn := rabbitmq_broker.ConnectToRabbitMQ(config.RabbitmqUrl)
+	rabbitBroker, err := rabbitmq_broker.NewRabbitBroker(rabbitMQConn)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	// Initialize dependencies
+	service, err := service.New(queries, rabbitBroker, &rpcbroker.RpcClient{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	h := handler.NewHandler(service)
+
+	tokenManager := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
+	app.srv.router = SetupRouter(h, tokenManager)
 	app.srv.port = config.Port
 
-	//init async rabbitmq and rpc workers
-	rpcreceiver.RunRpcServer(*h.UserDb)
-	imageServiceBroker.RunRabbitBroker(config, h.UserDb)
+	//run async rabbit receiver and rpc receiver
+	rabbitmq_broker.RunRabbitBroker(config, queries)
+	rpcServer := rpcbroker.NewRpcServer(queries)
+	go rpcServer.ListenForRpc()
+	return nil
 }
 
-func SetupRouter(h *handler.Handler) *chi.Mux {
+func SetupRouter(h *handler.Handler, tm *token.Manager) *chi.Mux {
 	router := chi.NewRouter()
-	router.Post("/users", h.CreateUser)
-	router.Mount("/", ProtectedRoutes(*h, h.TokenManager))
+	router.Mount("/", ProtectedRoutes(*h, tm))
 	return router
 }
 
 func ProtectedRoutes(h handler.Handler, tm *token.Manager) http.Handler {
 	router := chi.NewRouter()
-	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*", "null"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
-	}))
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(60 * time.Second))
-	router.Use(h.TokenManager.VerifyJwtToken)
+	router.Use(tm.VerifyJwtToken)
 	router.Get("/health", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Write([]byte("Server is up and running"))
 	})
-	router.Get("/users/{userId}", h.GetUser)
-	router.Get("/users/{userId}/profileImage", h.GetUserProfileImage)
-	router.Get("/users/profileImage", h.GetOwnProfileImage)
-	router.Post("/users/profileImage", h.CreateUserProfileImage)
+	router.Get("/api/v1/users/{userId}", h.GetUser)
+	router.Get("/api/v1/users/{userId}/profileImage", h.GetUserProfileImage)
+	router.Get("/api/v1/users/profileImage", h.GetOwnProfileImage)
+	router.Post("/api/v1/users/profileImage", h.CreateUserProfileImage)
 	return router
 }

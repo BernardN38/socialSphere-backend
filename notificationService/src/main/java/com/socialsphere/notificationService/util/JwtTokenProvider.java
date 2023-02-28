@@ -15,6 +15,7 @@ public class JwtTokenProvider {
 
     private String secretKey= "qwertyuiopasdfghjklzxcvbnm123456";
 
+
     public boolean validateToken(String token) {
         try {
             Jwts.parser().setSigningKey(secretKey.getBytes()).parseClaimsJws(token);

@@ -95,7 +95,7 @@ func SetCookie(w http.ResponseWriter, token *jwt.Token) {
 		MaxAge:     3600,
 		Secure:     false,
 		HttpOnly:   true,
-		SameSite:   1,
+		SameSite:   http.SameSiteLaxMode,
 		Raw:        "",
 		Unparsed:   nil,
 	}

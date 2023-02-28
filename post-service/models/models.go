@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"github.com/bernardn38/socialsphere/post-service/sql/post"
 	"github.com/google/uuid"
 )
 
@@ -26,4 +27,11 @@ type RpcImageUpload struct {
 	UserId  int32
 	Image   []byte
 	ImageId uuid.UUID
+}
+
+type PostPage struct {
+	Posts    []post.GetPostByUserIdPagedRow `json:"posts"`
+	PageNo   int32                          `json:"pageNo"`
+	PageSize int                            `json:"pageSize"`
+	LastPage bool                           `json:"lastPage"`
 }

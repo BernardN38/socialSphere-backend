@@ -7,12 +7,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bernardn38/socialsphere/friend-service/models"
 	"github.com/bernardn38/socialsphere/friend-service/sql/users"
 	"github.com/cristalhq/jwt/v4"
 	"gopkg.in/go-playground/validator.v9"
 )
 
-func CreateUser(usersDb *users.Queries, form *UserForm) (int32, error) {
+func CreateUser(usersDb *users.Queries, form *models.UserForm) (int32, error) {
 	user := users.CreateUserParams{
 		UserID:    form.UserId,
 		Username:  form.Username,
@@ -28,40 +29,40 @@ func CreateUser(usersDb *users.Queries, form *UserForm) (int32, error) {
 	return createdUserId, nil
 }
 
-func ValidateUserForm(reqBody []byte) (UserForm, error) {
-	var form UserForm
+func ValidateUserForm(reqBody []byte) (models.UserForm, error) {
+	var form models.UserForm
 	err := json.Unmarshal(reqBody, &form)
 	if err != nil {
-		return UserForm{}, err
+		return models.UserForm{}, err
 	}
 
 	v := validator.New()
 	err = v.Struct(form)
 	if err != nil {
-		return UserForm{}, err
+		return models.UserForm{}, err
 	}
 
 	return form, nil
 }
-func ValidateFriendshipForm(reqBody []byte) (UserFriendshipForm, error) {
-	var form UserFriendshipForm
+func ValidateFriendshipForm(reqBody []byte) (models.UserFriendshipForm, error) {
+	var form models.UserFriendshipForm
 	err := json.Unmarshal(reqBody, &form)
 	if err != nil {
-		return UserFriendshipForm{}, err
+		return models.UserFriendshipForm{}, err
 	}
 
 	v := validator.New()
 	err = v.Struct(form)
 	if err != nil {
-		return UserFriendshipForm{}, err
+		return models.UserFriendshipForm{}, err
 	}
 
 	return form, nil
 }
 
-func ValidateFindFriendsForm(r *http.Request) (FindFriendsForm, error) {
+func ValidateFindFriendsForm(r *http.Request) (models.FindFriendsForm, error) {
 	params := r.URL.Query()
-	form := FindFriendsForm{
+	form := models.FindFriendsForm{
 		Username:  params.Get("username"),
 		Email:     params.Get("email"),
 		FirstName: params.Get("firstName"),
@@ -70,7 +71,7 @@ func ValidateFindFriendsForm(r *http.Request) (FindFriendsForm, error) {
 	v := validator.New()
 	err := v.Struct(form)
 	if err != nil {
-		return FindFriendsForm{}, err
+		return models.FindFriendsForm{}, err
 	}
 	log.Println(params, form)
 	return form, nil

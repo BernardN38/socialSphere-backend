@@ -5,10 +5,12 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/bernardn38/socialsphere/identity-service/models"
+	"github.com/cristalhq/jwt/v4"
 	"github.com/go-chi/chi/v5"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -92,4 +94,24 @@ func ConnectToRabbitMQ(rabbitUrl string) *amqp.Connection {
 			return conn
 		}
 	}
+}
+
+func GetEnvConfig() models.Config {
+	//get configuration from enviroment and validate
+	postgresUrl := os.Getenv("DSN")
+	jwtSecret := os.Getenv("jwtSecret")
+	rabbitMQUrl := os.Getenv("rabbitMQUrl")
+	port := os.Getenv("port")
+	config := models.Config{
+		JwtSecretKey:     jwtSecret,
+		JwtSigningMethod: jwt.Algorithm(jwt.HS256),
+		PostgresUrl:      postgresUrl,
+		RabbitmqUrl:      rabbitMQUrl,
+		Port:             port,
+	}
+	err := config.Validate()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	return config
 }

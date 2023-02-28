@@ -1,19 +1,31 @@
 version: '3.8'
 
 services:
-  krakend:
-    image: devopsfaith/krakend:2.0
+  # krakend:
+    # image: devopsfaith/krakend:2.0
+    # volumes:
+    #   - "../api-gateway/config:/etc/krakend/"
+    # ports:
+    #   - "1234:1234"
+    #   - "8080:8080"
+    #   - "8090:8090"
+    #   - "9091:9091"
+    # command: [ "run", "-d", "-c", "/etc/krakend/krakend.json" ]
+
+  nginx:
+    image: nginx:latest
     volumes:
-      - "../api-gateway/config:/etc/krakend/"
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./dist:/usr/share/nginx/html
     ports:
-      - "1234:1234"
+      - "443:443"
       - "8080:8080"
-      - "8090:8090"
-    command: [ "run", "-d", "-c", "/etc/krakend/krakend.json" ]
+    depends_on:
+      - rabbitmq
 
   rabbitmq:
     hostname: 'dev-rabbitmq'
-    image: 'rabbitmq:3-management'
+    image: 'rabbitmq:3-management-alpine'
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -27,6 +39,12 @@ services:
       - ../rabbit-init/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ../rabbit-init/definitions.json:/etc/rabbitmq/definitions.json:ro
       - ../db-data/rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
 
   postgres:
     image: postgres:14-alpine
@@ -38,7 +56,7 @@ services:
       - APP_DB_PASS=password
       - AUTH_DB_NAME=authentication_service
       - POST_DB_NAME=post_service
-      - IMAGE_DB_NAME=image_service
+      - MEDIA_DB_NAME=media_service
       - IDENTITY_DB_NAME=identity_service
       - FRIEND_DB_NAME=friend_service
       - NOTIFICATION_DB_NAME=notification_service
@@ -51,6 +69,8 @@ services:
     volumes:
       - ../postgres-data:/var/lib/postgresql/data
       - ../database-init:/docker-entrypoint-initdb.d/
+
+
 
   mongo:
     image: mongo
@@ -72,7 +92,6 @@ services:
       - $PWD/redis.conf:/usr/local/etc/redis/redis.conf
     environment:
      - REDIS_REPLICATION_MODE=master
-
   
   minio:
     image: minio/minio
@@ -101,12 +120,11 @@ services:
               cpus: "0.25"
               memory: 128M
 
+
   authentication-service:
     build:
       context: ../authentication-service
       dockerfile: ./authentication-service.dockerfile
-    ports:
-      - "9000:9000"
     restart: always
     deploy:
       mode: replicated
@@ -123,6 +141,7 @@ services:
       jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
       port: ":8080"
+
 
   post-service:
       build:
@@ -147,12 +166,11 @@ services:
         minioSecret: minio123
         port: ":8080"
 
-  image-service:
+
+  media-service:
     build:
-      context: ../image-service
-      dockerfile: ./image-service.dockerfile
-    ports:
-      - "6060:6060"
+      context: ../media-service
+      dockerfile: ./media-service.dockerfile
     restart: always
     deploy:
       mode: replicated
@@ -165,12 +183,13 @@ services:
               cpus: "0.25"
               memory: 128M
     environment:
-      DSN: "user=bernardn password=password host=postgres dbname=image_service port=5432 sslmode=disable"
+      DSN: "user=bernardn password=password host=postgres dbname=media_service port=5432 sslmode=disable"
       jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
       minioKey: minio
       minioSecret: minio123
       port: ":8080"
+
 
   identity-service:
     build:
@@ -192,13 +211,13 @@ services:
       jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
       rabbitMQUrl: "amqp://guest:guest@rabbitmq"
       port: ":8080"
-  
-  messaging-service:
+
+
+
+  message-service:
     build: 
-      context: ../messaging-service
-      dockerfile: ./messaging-service.dockerfile
-    ports:
-      - "8086:8080"
+      context: ../message-service
+      dockerfile: ./message-service.dockerfile
     restart: always
     deploy:
       mode: replicated
@@ -215,12 +234,11 @@ services:
         port: ":8080"
         mongoUri: "mongodb://root:password@mongo:27017/?maxPoolSize=20&w=majority"
 
+
   friend-service:
     build: 
       context: ../friend-service
       dockerfile: ./friend-service.dockerfile
-    ports:
-      - "8085:8080"
     restart: always
     deploy:
       mode: replicated
@@ -238,12 +256,11 @@ services:
         rabbitMQUrl: "amqp://guest:guest@rabbitmq"
         port: ":8080"
 
+
   notification-service:
     build:
       context: ../notificationService
       dockerfile: ./notification-service.dockerfile
-    ports:
-      - 8088:8080
     deploy:
       mode: replicated
       replicas: 1
@@ -253,9 +270,10 @@ services:
               memory: 512M
             reservations:
               cpus: "0.25"
-              memory: 128M
+              memory: 256M
     environment:
         DATABASE_URL: "jdbc:postgresql://postgres:5432/notification_service"
         jwtSecret: "qwertyuiopasdfghjklzxcvbnm123456"
         rabbitMQUrl: "amqp://guest:guest@rabbitmq"
-        port: "8082"
+
+

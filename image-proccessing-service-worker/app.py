@@ -53,7 +53,7 @@ def compress_upload_png(image_bytes,image_id):
                optimize=True,
                quality=60)
     out.seek(0)
-    upload_image_to_s3(out, image_id)
+    upload_image_to_s3(out, image_id, "image/png")
 
 
 def compress_upload_jpeg(image_bytes, image_id):
@@ -65,7 +65,7 @@ def compress_upload_jpeg(image_bytes, image_id):
                optimize=True,
                quality=60)
     out.seek(0)
-    upload_image_to_s3(out, image_id)
+    upload_image_to_s3(out, image_id, "image/jpeg")
     return
 
 def compress_convert_upload_heic(image_bytes, image_id):
@@ -75,7 +75,7 @@ def compress_convert_upload_heic(image_bytes, image_id):
     resized_image = resize_image(pi)
     resized_image.save(out, format="jpeg", optimize=True, quality=60)
     out.seek(0)
-    upload_image_to_s3(out, image_id)
+    upload_image_to_s3(out, image_id, "image/jpeg")
     return
 
 def resize_image(image):

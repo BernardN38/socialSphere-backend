@@ -1,10 +1,7 @@
 package handler
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,51 +10,19 @@ import (
 
 	"github.com/bernardn38/socialsphere/post-service/helpers"
 	"github.com/bernardn38/socialsphere/post-service/models"
-	"github.com/bernardn38/socialsphere/post-service/rabbitmq_broker"
-	rpcbroker "github.com/bernardn38/socialsphere/post-service/rpc_broker"
-	"github.com/bernardn38/socialsphere/post-service/sql/post"
-	"github.com/bernardn38/socialsphere/post-service/token"
+	"github.com/bernardn38/socialsphere/post-service/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	pq "github.com/lib/pq"
-	"github.com/minio/minio-go"
 )
 
 type Handler struct {
-	PostDb          *post.Queries
-	TokenManager    *token.Manager
-	RabbitMQEmitter *rabbitmq_broker.RabbitMQEmitter
-	RpcClient       *rpcbroker.RpcClient
-	MinioClient     *minio.Client
+	postService *service.PostService
 }
 
-func NewHandler(config models.Config) (*Handler, error) {
-	//open connection to postgres
-	db, err := sql.Open("postgres", config.PostgresUrl)
-	if err != nil {
-		return nil, err
+func NewHandler(service *service.PostService) *Handler {
+	return &Handler{
+		postService: service,
 	}
-
-	// init sqlc post queries
-	queries := post.New(db)
-
-	//init jwt token manager
-	tokenManger := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
-
-	//init rabbitmq message emitter
-	rabbitConn := rabbitmq_broker.ConnectToRabbitMQ(config.RabbitmqUrl)
-	rabbitMQBroker, err := rabbitmq_broker.NewRabbitEventEmitter(rabbitConn)
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-	// connect to minio
-	minioClient, err := minio.New("minio:9000", config.MinioKey, config.MinioSecret, false)
-	if err != nil {
-		return nil, err
-	}
-	handler := Handler{PostDb: queries, TokenManager: tokenManger, RabbitMQEmitter: &rabbitMQBroker, RpcClient: &rpcbroker.RpcClient{}, MinioClient: minioClient}
-	return &handler, nil
 }
 
 func (h *Handler) GetLikeCount(w http.ResponseWriter, r *http.Request) {
@@ -66,11 +31,10 @@ func (h *Handler) GetLikeCount(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	likeCount, err := h.PostDb.GetPostLikeCountById(context.Background(), convertedPostId)
+	likeCount, err := h.postService.GetLikeCuountbyPostId(convertedPostId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, http.StatusNotFound)
-		return
+		http.Error(w, "like count could not be calculated", http.StatusInternalServerError)
 	}
 
 	helpers.ResponseWithJson(w, 200, helpers.JsonResponse{Data: models.PostLikes{PostId: postId, LikeCount: likeCount}, Timestamp: time.Now()})
@@ -98,14 +62,13 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	//ready comment body
+	//read comment body
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-
 	//unmarshal body to struct and validate
 	var commentForm models.CreateCommentForm
 	err = json.Unmarshal(bodyBytes, &commentForm)
@@ -117,27 +80,11 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	err = commentForm.Validate()
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "comment form invalid", http.StatusBadRequest)
+		http.Error(w, "create comment form invalid", http.StatusBadRequest)
 		return
 	}
-
-	createdComment, err := h.PostDb.CreateComment(context.Background(), post.CreateCommentParams{Body: commentForm.Body, UserID: userId, AuthorName: username})
-	if err != nil {
-		log.Println(err)
-		helpers.ResponseNoPayload(w, http.StatusInternalServerError)
-		return
-	}
-
-	_, err = h.PostDb.CreatePostComment(context.Background(), post.CreatePostCommentParams{
-		PostID:    convertedPostId,
-		CommentID: createdComment.ID,
-	})
-	if err != nil {
-		log.Println(err)
-		helpers.ResponseNoPayload(w, http.StatusInternalServerError)
-		return
-	}
-	helpers.ResponseWithJson(w, 201, helpers.JsonResponse{Data: createdComment, Timestamp: time.Now()})
+	err = h.postService.CreateCommentForPostId(commentForm, convertedPostId, userId, username)
+	helpers.ResponseNoPayload(w, 201)
 }
 
 func (h *Handler) GetAllPostComments(w http.ResponseWriter, r *http.Request) {
@@ -149,14 +96,15 @@ func (h *Handler) GetAllPostComments(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	postsComments, err := h.PostDb.GetAllPostCommentsByPostId(context.Background(), parsedPostId)
+
+	postComments, err := h.postService.GetCommentByPostId(parsedPostId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, http.StatusNotFound)
+		http.Error(w, "could not find post comments", http.StatusInternalServerError)
 		return
 	}
 	// convert to json then send to client
-	jsonResp, err := json.Marshal(postsComments)
+	jsonResp, err := json.Marshal(postComments)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
@@ -181,30 +129,21 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid post form", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
 
 	var imageId = uuid.NullUUID{UUID: uuid.New(), Valid: file != nil}
-	createdPost, err := h.PostDb.CreatePost(r.Context(), post.CreatePostParams{
+	createPostForm := models.CreatPostForm{
 		Body:       body,
 		UserID:     convertedUserId,
 		AuthorName: username,
 		ImageID:    imageId,
-	})
+	}
+	_, err = h.postService.CreatPost(createPostForm, file, header)
 	if err != nil {
-		helpers.ResponseWithPayload(w, 500, []byte(err.Error()))
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if file != nil {
-		_, err := h.MinioClient.PutObject("image-service-socialsphere1", imageId.UUID.String(), file, header.Size, minio.PutObjectOptions{})
-		if err != nil {
-			log.Println(err)
-		}
-		err = SendUserPhotoUploadUpdate(h, "userPhotoUpload", imageId.UUID, convertedUserId)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-	helpers.ResponseWithPayload(w, http.StatusCreated, []byte(fmt.Sprintf(`{Post created with id: "%v"}`, createdPost.ID)))
+	helpers.ResponseNoPayload(w, http.StatusCreated)
 }
 
 func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
@@ -216,17 +155,13 @@ func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	respPost, err := h.PostDb.GetPostByIdWithLikes(r.Context(), convertedPostId)
+	post, err := h.postService.GetPostWithLikes(convertedPostId)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			helpers.ResponseNoPayload(w, http.StatusNotFound)
-			return
-		}
-		helpers.ResponseNoPayload(w, 500)
-		return
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusNotFound)
 	}
 	helpers.ResponseWithJson(w, 200, helpers.JsonResponse{
-		Data:      respPost,
+		Data:      post,
 		Timestamp: time.Now(),
 	})
 }
@@ -241,35 +176,10 @@ func (h *Handler) GetPostsPageByUserId(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusUnauthorized)
 		return
 	}
-	limit, offset, err := ValidatePagination(pageSize, pageNo)
-	if err != nil {
-		log.Println(err)
-		helpers.ResponseWithPayload(w, 400, []byte(err.Error()))
-		return
-	}
-	posts, err := h.PostDb.GetPostByUserIdPaged(r.Context(), post.GetPostByUserIdPagedParams{
-		UserID: userId,
-		Limit:  limit + 1,
-		Offset: offset,
-	})
-	if err != nil {
-		helpers.ResponseNoPayload(w, http.StatusBadRequest)
-	}
-	var lastPage bool
-	if len(posts) > int(limit) {
-		lastPage = false
-		posts = posts[:limit]
-	} else {
-		lastPage = true
-	}
-	respPage := helpers.PageResponse{
-		Page:     posts,
-		PageSize: len(posts),
-		PageNo:   (offset / limit) + 1,
-		LastPage: lastPage,
-	}
+
+	posts, err := h.postService.GetPostsByUserIdPaginated(userId, pageNo, pageSize)
 	jsonResponse := helpers.JsonResponse{
-		Data:      respPage,
+		Data:      posts,
 		Timestamp: time.Now(),
 	}
 
@@ -291,15 +201,12 @@ func (h *Handler) DeletePost(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	imageId, err := h.PostDb.DeletePostById(r.Context(), post.DeletePostByIdParams{
-		ID:     convertedPostId,
-		UserID: parsedUserId,
-	})
+	err = h.postService.DeletePost(convertedPostId, parsedUserId)
 	if err != nil {
-		http.Error(w, "", http.StatusBadRequest)
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	h.RabbitMQEmitter.PushDelete(imageId.UUID.String())
 	helpers.ResponseNoPayload(w, 200)
 }
 func (h *Handler) CreatePostLike(w http.ResponseWriter, r *http.Request) {
@@ -316,15 +223,7 @@ func (h *Handler) CreatePostLike(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	_, err = h.PostDb.CreatePostLike(r.Context(), post.CreatePostLikeParams{
-		PostID: convertedPostId,
-		UserID: parsedUserId,
-	})
-	var duplicateEntryError = &pq.Error{Code: "23505"}
-	if errors.As(err, &duplicateEntryError) {
-		helpers.ResponseNoPayload(w, http.StatusBadRequest)
-		return
-	}
+	err = h.postService.CreatePostLike(convertedPostId, parsedUserId)
 	if err != nil {
 		log.Println(err)
 		helpers.ResponseNoPayload(w, 500)
@@ -347,16 +246,13 @@ func (h *Handler) DeleteLike(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	err = h.PostDb.DeletePostLike(r.Context(), post.DeletePostLikeParams{
-		UserID: parsedUserId,
-		PostID: convertedPostId,
-	})
+	err = h.postService.DeletePostLike(convertedPostId, parsedUserId)
 	if err != nil {
 		log.Println(err)
-		helpers.ResponseNoPayload(w, 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	helpers.ResponseNoPayload(w, 200)
+	helpers.ResponseNoPayload(w, http.StatusOK)
 }
 
 func (h *Handler) CheckLike(w http.ResponseWriter, r *http.Request) {
@@ -373,12 +269,10 @@ func (h *Handler) CheckLike(w http.ResponseWriter, r *http.Request) {
 		helpers.ResponseNoPayload(w, http.StatusBadRequest)
 		return
 	}
-	isLiked, err := h.PostDb.CheckLike(r.Context(), post.CheckLikeParams{
-		PostID: convertedPostId,
-		UserID: parsedUserId,
-	})
+	isLiked, err := h.postService.CheckLike(convertedPostId, parsedUserId)
 	if err != nil {
 		fmt.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	helpers.ResponseWithPayload(w, 200, []byte(fmt.Sprintf("%v", isLiked)))

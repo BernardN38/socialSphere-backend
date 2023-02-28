@@ -5,15 +5,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socialsphere.notificationService.dto.FollowDto;
 import com.socialsphere.notificationService.dto.MessageDto;
 import com.socialsphere.notificationService.dto.NotificationDto;
+import com.socialsphere.notificationService.dto.UserDto;
 import com.socialsphere.notificationService.models.Notification;
 import com.socialsphere.notificationService.repository.NotificationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -23,8 +27,8 @@ public class HttpController {
     @Autowired
     private SimpMessagingTemplate simpMessagingTemplate;
 
-    @GetMapping("/notifications/{id}")
-    public ResponseEntity<NotificationDto> getNotification(@PathVariable Long id) throws JsonProcessingException {
+    @GetMapping("/api/v1/notifications/{id}")
+    public ResponseEntity<NotificationDto> getNotification(@PathVariable Long id, Principal principal) throws JsonProcessingException {
         Notification notification = notificationRepository.getReferenceById(id);
         ObjectMapper mapper = new ObjectMapper();
         MessageDto messageDto = mapper.readValue(notification.getPayload(), MessageDto.class);
@@ -33,27 +37,26 @@ public class HttpController {
                 messageDto.toString(),
                 notification.getType(),
                 notification.getRead(),
-                notification.getTimestamp()
+                notification.getCreatedAt()
         );
-        System.out.println(resp);
         return ResponseEntity.ok(resp);
     }
 
-    @GetMapping("/notifications")
-    public List<NotificationDto> getNotifications() {
-        List<Notification> notifications = notificationRepository.findAll();
-        ObjectMapper mapper = new ObjectMapper();
-        return notifications.stream()
+    @GetMapping("/api/v1/notifications/page")
+    public ResponseEntity<List<NotificationDto>> getNotifications(@AuthenticationPrincipal UserDto user, @RequestParam(defaultValue = "0") int pageNo,
+                                                                  @RequestParam(defaultValue = "10") int pageSize) {
+        System.out.println("hit route");
+        Optional<List<Notification>> notifications = notificationRepository.findByUserId((long) user.getUserId(), PageRequest.of(pageNo,pageSize));
+        List<NotificationDto> notificationsList = notifications.orElseThrow().stream()
                 .map(notification -> {
-                    return new NotificationDto(notification.getUserId(), notification.getPayload(), notification.getType(), notification.getRead(), notification.getTimestamp());
-
+                    return new NotificationDto(notification.getUserId(), notification.getPayload(), notification.getType(), notification.getRead(), notification.getCreatedAt());
                 })
                 .collect(Collectors.toList());
+        return ResponseEntity.ok(notificationsList);
     }
 
-    @PostMapping("/notifications/follow")
+    @PostMapping("/api/v1/notifications/follow")
     public ResponseEntity createNotification(@RequestBody FollowDto followDto) {
-        System.out.println(followDto);
         Notification notification = new Notification();
         notification.setPayload(followDto.toString());
         notification.setType("newFollow");
@@ -63,5 +66,4 @@ public class HttpController {
         simpMessagingTemplate.convertAndSendToUser(String.valueOf(followDto.getFollowed()), "/notifications", notification);
         return ResponseEntity.ok(resp);
     }
-
 }

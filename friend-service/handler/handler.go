@@ -1,11 +1,7 @@
 package handler
 
 import (
-	"bytes"
-	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,59 +10,16 @@ import (
 
 	"github.com/bernardn38/socialsphere/friend-service/helpers"
 	"github.com/bernardn38/socialsphere/friend-service/models"
-	rabbitmqBroker "github.com/bernardn38/socialsphere/friend-service/rabbitmq_broker"
-	"github.com/bernardn38/socialsphere/friend-service/sql/users"
-	"github.com/bernardn38/socialsphere/friend-service/token"
+	"github.com/bernardn38/socialsphere/friend-service/service"
 	"github.com/go-chi/chi/v5"
-	"github.com/lib/pq"
 )
 
 type Handler struct {
-	UsersDb      *users.Queries
-	TokenManager *token.Manager
-	Emitter      *rabbitmqBroker.Emitter
-}
-type UserForm struct {
-	UserId    int32  `json:"userId" validate:"required"`
-	Username  string `json:"username" validate:"required,min=2,max=100"`
-	Email     string `json:"email" validate:"required,email"`
-	FirstName string `json:"firstName" validate:"required"`
-	LastName  string `json:"lastName" validate:"required"`
+	friendService *service.FriendService
 }
 
-type UserFriendshipForm struct {
-	FriendA int32 `json:"friendA" validate:"required"`
-	FriendB int32 `json:"friendB" validate:"required"`
-}
-
-type FindFriendsForm struct {
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-}
-
-func NewHandler(config models.Config) (*Handler, error) {
-	//open connection to postgres
-	db, err := sql.Open("postgres", config.PostgresUrl)
-	if err != nil {
-		return nil, err
-	}
-	// init sqlc user queries
-	queries := users.New(db)
-
-	//init jwt token manager
-	tokenManger := token.NewManager([]byte(config.JwtSecretKey), config.JwtSigningMethod)
-
-	//init rabbitmq message emitter
-	rabbitMQConn := rabbitmqBroker.ConnectToRabbitMQ(config.RabbitmqUrl)
-	emitter, err := rabbitmqBroker.NewEventEmitter(rabbitMQConn)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
-	handler := Handler{UsersDb: queries, TokenManager: tokenManger, Emitter: &emitter}
-	return &handler, nil
+func NewHandler(friendService *service.FriendService) *Handler {
+	return &Handler{friendService: friendService}
 }
 
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -83,15 +36,9 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	//create user in datbase
-	_, err = h.UsersDb.CreateUser(context.Background(), users.CreateUserParams{
-		UserID:    userForm.UserId,
-		Username:  userForm.Username,
-		Email:     userForm.Email,
-		FirstName: userForm.FirstName,
-		LastName:  userForm.LastName,
-	})
+	_, err = h.friendService.CreateUser(models.CreateUserForm(userForm))
 	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -117,39 +64,21 @@ func (h *Handler) CreateFollow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
+	username, ok := r.Context().Value("username").(string)
+	if !ok {
+		log.Println("error parsing userId to string")
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
 	userIdi64, err := strconv.ParseInt(userId, 10, 32)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "", http.StatusInternalServerError)
 	}
-
-	err = h.UsersDb.CreateFollow(context.Background(), users.CreateFollowParams{
-		FriendA: int32(userIdi64),
-		FriendB: int32(friendIdi64),
-	})
-	var duplicateEntryError = &pq.Error{Code: "23505"}
-	if errors.As(err, &duplicateEntryError) {
-		err := h.UsersDb.DeleteFollow(r.Context(), users.DeleteFollowParams{
-			FriendA: int32(userIdi64),
-			FriendB: int32(friendIdi64),
-		})
-		if err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
-		}
-	}
-	payload := models.FollowNotificaitonPayload{Follower: int32(userIdi64), Followed: int32(friendIdi64), MessageType: "newFollow"}
-	jsonBytes, err := json.Marshal(payload)
+	_, err = h.friendService.CreateUserFollow(int32(userIdi64), username, int32(friendIdi64), r.Header.Get("Cookie"))
 	if err != nil {
 		log.Println(err)
-	}
-	req, _ := http.NewRequest("POST", "http://notification-service:8080/notifications/follow", bytes.NewBuffer(jsonBytes))
-	req.Header.Add("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	log.Println(resp, err)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	helpers.ResponseNoPayload(w, 201)
@@ -162,24 +91,17 @@ func (h *Handler) FindFriends(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	users, err := h.UsersDb.GetUsersByFields(context.Background(), users.GetUsersByFieldsParams{
-		Username:  findFriendsForm.Username,
-		Email:     findFriendsForm.Email,
-		FirstName: findFriendsForm.FirstName,
-		LastName:  findFriendsForm.LastName,
-		Limit:     10,
-	})
+	friends, err := h.friendService.FindFriends(findFriendsForm)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "No Users Found", http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if len(users) == 0 {
+	if len(friends) == 0 {
 		http.Error(w, "No users found", http.StatusNotFound)
 		return
 	}
-	respPayload, err := json.Marshal(users)
+	respPayload, err := json.Marshal(friends)
 	if err != nil {
 		http.Error(w, "error writing json resp", http.StatusInternalServerError)
 		return
@@ -207,10 +129,10 @@ func (h *Handler) CheckFollow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	followStatus, err := h.UsersDb.CheckFollow(context.Background(), users.CheckFollowParams{FriendA: int32(userIdi64), FriendB: int32(friendBi64)})
+	followStatus, err := h.friendService.CheckFollow(int32(userIdi64), int32(friendBi64))
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "", http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	helpers.ResponseWithPayload(w, http.StatusOK, []byte(fmt.Sprintf("%v", followStatus)))
@@ -229,10 +151,7 @@ func (h *Handler) GetFriendsLastestPhotos(w http.ResponseWriter, r *http.Request
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	userFollows, err := h.UsersDb.GetLatestPhotos(context.Background(), users.GetLatestPhotosParams{
-		FriendA: int32(userIdi64),
-		Limit:   3,
-	})
+	userFollows, err := h.friendService.GetLatestFriendPhotos(int32(userIdi64))
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "no follows found", http.StatusNotFound)
@@ -242,6 +161,29 @@ func (h *Handler) GetFriendsLastestPhotos(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println(userFollows)
 	helpers.ResponseWithPayload(w, http.StatusOK, resp)
+}
+
+func (h *Handler) GetFriends(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(string)
+	if !ok {
+		log.Println("error parsing userId to string")
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+	userIdi64, err := strconv.ParseInt(userId, 10, 32)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	friendIds, err := h.friendService.GetFriends(int32(userIdi64))
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "no friends found", http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string][]int32{"friendIds": friendIds})
+
+	w.WriteHeader(http.StatusOK)
 }

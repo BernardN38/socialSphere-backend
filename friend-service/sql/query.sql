@@ -73,3 +73,6 @@ set username   = $2,
     last_name  = $5
 WHERE id = $1 RETURNING *;
 
+
+-- name: GetUserFriendById :many
+SELECT friend_b FROM follow WHERE friend_a = $1;
