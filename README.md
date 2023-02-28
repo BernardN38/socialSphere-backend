@@ -63,23 +63,23 @@ Notes.
 
 Here I will list the languages and techonologies used in the project with a breif description.
 
--Go
+- Go
   -Go-Chi: 
     -A small lightweight library used to route requests.
--Python
+- Python
   -PIL:
     -An image proccessing lirabry used to compress adnd optimize images.
--Java
+- Java
   -Spring Boot:
     -A web framework used to build notification http server and websocket.
--NGINX
+- NGINX
   -A reverse proxy used to make a unified front for all microservices.
--Docker
+- Docker
   -
--Minio
+- Minio
   -S3 like blob storage
--RabbitMQ
--JWT
+- RabbitMQ
+- JWT
   -Used to secure
 
 
