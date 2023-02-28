@@ -65,31 +65,23 @@ Notes.
 Here are the languages and technologies used in the project, along with brief descriptions:
 
 - Go:
-  - Primary language used for most of the microservices.
-  - Go-Chi:
-    - A small, lightweight library used to route requests.
-  - Sqlc:
-    - A code generator that converts SQL queries into type-safe Go code, used to interact with the PostgreSQL database.
+  - Go-Chi: A small, lightweight library used to route requests within Go microservices.
+  - Sqlc: A code generator that converts SQL queries into type-safe Go code, used to interact with the PostgreSQL database.
 - Python:
-  - PIL:
-    - An image processing library used to compress and optimize images.
+  - PIL: An image processing library used to compress and optimize images for storage.
+  - Flask: A micro web framework used for building and deploying REST APIs.
 - Java:
-  - Spring Boot:
-    - A web framework used to build the notification microservice HTTP server and WebSocket.
-- PostgreSQL:
-  - A SQL relational database used to provide persistence to the backend.
-- MongoDB:
-  - A NoSQL database used to provide persistence to the messaging microservice.
-- NGINX:
-  - A web server used as a reverse proxy to make a unified front for all microservices.
-- Docker:
-  - A container platform used to run the microservices and containers.
-- Minio:
-  - An S3-like blob storage used to store images and videos.
-- RabbitMQ:
-  - A messaging queue used for communication between microservices to decouple.
-- JWT:
-  - Used to secure and provide authentication to all microservices.
+  - Spring Boot: A web framework used to build the notification microservice HTTP server and WebSocket.
+  - Maven: A build automation tool used for managing Java dependencies and plugins.
+- PostgreSQL: A SQL relational database used to provide persistence to the backend.
+- MongoDB: A NoSQL document database used to provide persistence to the messaging microservice.
+- NGINX: A web server used as a reverse proxy to make a unified front for all microservices and handle SSL termination.
+- Docker: A container platform used to run the microservices and containers.
+- Minio: An S3-compatible object storage used to store images, videos, and other binary data.
+- RabbitMQ: A messaging queue used for communication between microservices to decouple the application and improve scalability.
+- JWT: Used to secure and provide authentication to all microservices.
+- Redis: An in-memory data structure store used as a caching layer and for Pub/Sub messaging between services.
+
 
 
 # Architecture
