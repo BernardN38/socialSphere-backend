@@ -76,10 +76,11 @@ Here I will list the languages and techonologies used in the project with a brei
   - A reverse proxy used to make a unified front for all microservices.
 - Docker
 - Minio
-  - S3 like blob storage
+  - S3 like blob storage used to store images and videos.
 - RabbitMQ
+	- A messaging queue used for communication between microservices to decouple.
 - JWT
-  - Used to secure
+  - Used to secure and provide authentication to all microservices.
 
 
 
