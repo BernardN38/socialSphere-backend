@@ -31,7 +31,7 @@ The following set of instructions will allow you to clone the application and ru
         git clone https://github.com/BernardN38/socialSphere-backend
          ```
 
-2. `cd` into the the application: 
+2. `cd` into the the project folder: 
 	
 	```
 	cd socialSphere-backend/project
